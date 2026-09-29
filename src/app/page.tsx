@@ -43,6 +43,9 @@ type CanvasElement = {
   gridColumnSpan: number;
   gridRowStart: number;
   gridRowSpan: number;
+  visible: boolean;
+  locked: boolean;
+  zIndex: number;
 };
 
 const palette: Array<{
@@ -216,6 +219,7 @@ function CanvasItem({
 
 function generateCode(elements: CanvasElement[]) {
   const generatedElements = elements
+    .filter((element) => element.visible !== false)
     .map((element) => {
       const text = JSON.stringify(element.text);
 
@@ -344,6 +348,9 @@ export default function Home() {
                   ),
                 gridRowStart: element.gridRowStart ?? 0,
                 gridRowSpan: element.gridRowSpan ?? 3,
+                visible: element.visible ?? true,
+                locked: element.locked ?? false,
+                zIndex: element.zIndex ?? 1,
               })),
             );
           }
@@ -397,6 +404,63 @@ export default function Home() {
     }
 
     setActiveType(null);
+  }
+
+  function toggleElementVisibility(id: string) {
+    setElements((current) =>
+      current.map((element) =>
+        element.id === id
+          ? {
+              ...element,
+              visible: element.visible === false,
+            }
+          : element,
+      ),
+    );
+  }
+
+  function toggleElementLock(id: string) {
+    setElements((current) =>
+      current.map((element) =>
+        element.id === id
+          ? {
+              ...element,
+              locked: !element.locked,
+            }
+          : element,
+      ),
+    );
+  }
+
+  function moveLayer(
+    id: string,
+    direction: "up" | "down",
+  ) {
+    setElements((current) => {
+      const index = current.findIndex(
+        (element) => element.id === id,
+      );
+
+      const targetIndex =
+        direction === "up" ? index + 1 : index - 1;
+
+      if (
+        index < 0 ||
+        targetIndex < 0 ||
+        targetIndex >= current.length
+      ) {
+        return current;
+      }
+
+      const next = [...current];
+      const [movedElement] = next.splice(index, 1);
+      next.splice(targetIndex, 0, movedElement);
+
+      return next.map((element, layerIndex) => ({
+        ...element,
+        zIndex: layerIndex + 1,
+      }));
+    });
   }
 
   function selectElement(id: string, additive: boolean) {
@@ -467,7 +531,7 @@ export default function Home() {
 
       setElements((current) =>
         current.map((element) => {
-          if (!selectedIds.includes(element.id)) return element;
+          if (!selectedIds.includes(element.id) || element.locked) return element;
 
           if (mode === "left") {
             return { ...element, x: minimumX };
@@ -556,7 +620,7 @@ export default function Home() {
     setElements((current) =>
       current.map((element) => {
         if (
-          !selectedIds.includes(element.id) ||
+          !selectedIds.includes(element.id) || element.locked ||
           element.positionMode === "absolute"
         ) {
           return element;
@@ -772,7 +836,7 @@ export default function Home() {
 
     setElements((current) =>
       current.filter(
-        (element) => !idsToDelete.includes(element.id),
+        (element) => !idsToDelete.includes(element.id) || element.locked,
       ),
     );
 
@@ -1088,6 +1152,87 @@ export default function Home() {
                 <PaletteItem key={item.type} {...item} />
               ))}
             </div>
+
+            <div className="mt-8 border-t border-slate-800 pt-5">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                Livelli
+              </h2>
+
+              {elements.length === 0 && (
+                <p className="text-xs text-slate-500">
+                  Nessun elemento presente.
+                </p>
+              )}
+
+              <div className="space-y-2">
+                {[...elements].reverse().map((element) => (
+                  <div
+                    key={element.id}
+                    className={`rounded-lg border p-2 ${
+                      selectedIds.includes(element.id)
+                        ? "border-blue-500 bg-blue-950/50"
+                        : "border-slate-700 bg-slate-800"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        selectElement(element.id, false)
+                      }
+                      className="mb-2 w-full truncate text-left text-sm"
+                    >
+                      {element.text || element.type}
+                    </button>
+
+                    <div className="grid grid-cols-4 gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleElementVisibility(element.id)
+                        }
+                        className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
+                        title="Mostra o nascondi"
+                      >
+                        {element.visible === false ? "○" : "●"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleElementLock(element.id)
+                        }
+                        className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
+                        title="Blocca o sblocca"
+                      >
+                        {element.locked ? "🔒" : "🔓"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          moveLayer(element.id, "up")
+                        }
+                        className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
+                        title="Porta avanti"
+                      >
+                        ↑
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          moveLayer(element.id, "down")
+                        }
+                        className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
+                        title="Porta indietro"
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </aside>
 
           <section className="overflow-auto bg-slate-900 p-8">
@@ -1126,9 +1271,10 @@ export default function Home() {
               {elements.map((element) => (
                 <div
                   key={element.id}
-                  draggable={element.positionMode !== "absolute"}
+                  draggable={element.positionMode !== "absolute" && !element.locked}
                   tabIndex={0}
                   onKeyDown={(event) => {
+                    if (element.locked) return;
                     if (element.positionMode !== "absolute") return;
 
                     const step = event.shiftKey ? 10 : 1;
@@ -1175,6 +1321,10 @@ export default function Home() {
                       : "opacity-100"
                   }`}
                   style={{
+                    display:
+                      element.visible === false ? "none" : undefined,
+                    pointerEvents:
+                      element.locked ? "none" : undefined,
                     position:
                       element.positionMode === "absolute"
                         ? "absolute"
@@ -1213,7 +1363,9 @@ export default function Home() {
                           : `span ${element.gridRowSpan ?? 3}`,
                     textAlign: element.alignment ?? "left",
                     zIndex:
-                      element.positionMode === "absolute" ? 10 : undefined,
+                      element.positionMode === "absolute"
+                        ? element.zIndex ?? 1
+                        : undefined,
                     overflow:
                       element.positionMode === "absolute"
                         ? "auto"
@@ -1805,6 +1957,7 @@ export default function Home() {
     </DndContext>
   );
 }
+
 
 
 
