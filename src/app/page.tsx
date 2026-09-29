@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -24,6 +24,127 @@ import { nanoid } from "nanoid";
 
 type ElementType = "heading" | "text" | "button" | "input" | "container" | "image" | "shape";
 type DeviceMode = "desktop" | "tablet" | "mobile";
+
+type ActionType =
+  | "alert"
+  | "confirm"
+  | "link"
+  | "email"
+  | "phone"
+  | "copy"
+  | "download"
+  | "scroll"
+  | "show"
+  | "hide"
+  | "toggle"
+  | "setText"
+  | "api"
+  | "submit"
+  | "play"
+  | "pause"
+  | "openModal"
+  | "closeModal"
+  | "setStorage"
+  | "removeStorage"
+  | "customEvent"
+  | "fullscreen"
+  | "back"
+  | "reload"
+  | "print"
+  | "plugin";
+
+type ElementAction = {
+  id: string;
+  type: ActionType;
+  value?: string;
+  payload?: string;
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  delayMs?: number;
+  pluginId?: string;
+  pluginActionId?: string;
+  pluginOptions?: Record<string, unknown>;
+};
+
+type PluginField = {
+  id: string;
+  label: string;
+  type:
+    | "text"
+    | "number"
+    | "password"
+    | "boolean"
+    | "select"
+    | "textarea";
+  required?: boolean;
+  defaultValue?: unknown;
+  choices?: Array<{
+    id: string;
+    label: string;
+  }>;
+};
+
+type PluginActionManifest = {
+  id: string;
+  name: string;
+  description?: string;
+  fields: PluginField[];
+};
+
+type PluginManifest = {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  actions: PluginActionManifest[];
+};
+
+const PLUGIN_GATEWAY_URL = "http://localhost:3210";
+
+const actionOptions: Array<{
+  type: ActionType;
+  label: string;
+}> = [
+  { type: "alert", label: "Mostra messaggio" },
+  { type: "confirm", label: "Richiedi conferma" },
+  { type: "link", label: "Apri collegamento" },
+  { type: "email", label: "Invia email" },
+  { type: "phone", label: "Chiama numero" },
+  { type: "copy", label: "Copia testo" },
+  { type: "download", label: "Scarica file" },
+  { type: "scroll", label: "Scorri verso elemento" },
+  { type: "show", label: "Mostra elemento" },
+  { type: "hide", label: "Nascondi elemento" },
+  { type: "toggle", label: "Attiva/disattiva elemento" },
+  { type: "setText", label: "Modifica testo elemento" },
+  { type: "api", label: "Chiamata API" },
+  { type: "submit", label: "Invia modulo" },
+  { type: "play", label: "Riproduci media" },
+  { type: "pause", label: "Pausa media" },
+  { type: "openModal", label: "Apri finestra modale" },
+  { type: "closeModal", label: "Chiudi finestra modale" },
+  { type: "setStorage", label: "Salva variabile locale" },
+  { type: "removeStorage", label: "Elimina variabile locale" },
+  { type: "customEvent", label: "Invia evento personalizzato" },
+  { type: "fullscreen", label: "Schermo intero" },
+  { type: "back", label: "Pagina precedente" },
+  { type: "reload", label: "Ricarica pagina" },
+  { type: "print", label: "Stampa pagina" },
+  { type: "plugin", label: "Comando plugin" },
+];
+
+const targetActionTypes: ActionType[] = [
+  "scroll",
+  "show",
+  "hide",
+  "toggle",
+  "setText",
+  "submit",
+  "play",
+  "pause",
+  "openModal",
+  "closeModal",
+  "fullscreen",
+];
 
 type CanvasElement = {
   id: string;
@@ -69,6 +190,7 @@ type CanvasElement = {
   buttonAction?: "none" | "link" | "alert" | "email" | "phone";
   actionValue?: string;
   openNewTab?: boolean;
+  actions?: ElementAction[];
 };
 
 const palette: Array<{
@@ -179,6 +301,31 @@ const defaults: Record<ElementType, Omit<CanvasElement, "id" | "type">> = {
     shapeThickness: 4,
   },
 };
+
+function getElementActions(
+  element: CanvasElement,
+): ElementAction[] {
+  if (element.actions?.length) {
+    return element.actions;
+  }
+
+  if (
+    element.buttonAction &&
+    element.buttonAction !== "none"
+  ) {
+    return [
+      {
+        id: `legacy-${element.id}`,
+        type: element.buttonAction as ActionType,
+        value: element.actionValue ?? "",
+        method: "GET",
+        delayMs: 0,
+      },
+    ];
+  }
+
+  return [];
+}
 
 function PaletteItem({
   type,
@@ -443,56 +590,27 @@ function generateCode(elements: CanvasElement[]) {
 
       switch (element.type) {
         case "heading":
-          return `      <h1 style={{ color: "${element.color}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", fontWeight: 700 }}>${element.text}</h1>`;
+          return `      <h1 id="element-${element.id}" style={{ color: "${element.color}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", fontWeight: 700 }}>${element.text}</h1>`;
 
         case "text":
-          return `      <p style={{ color: "${element.color}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}" }}>${element.text}</p>`;
+          return `      <p id="element-${element.id}" style={{ color: "${element.color}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}" }}>${element.text}</p>`;
 
         case "button": {
-          const actionValue = JSON.stringify(
-            element.actionValue ?? "",
-          );
+          const actions = getElementActions(element);
+          const actionsJson = JSON.stringify(actions);
 
           const buttonStyle =
-            `${layoutStyle}, ${appearanceStyle}, color: "${element.color}", backgroundColor: "${element.background}", fontSize: ${element.fontSize}, padding: "12px 20px", display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none"`;
+            `${layoutStyle}, ${appearanceStyle}, color: "${element.color}", backgroundColor: "${element.background}", fontSize: ${element.fontSize}, padding: "12px 20px", display: "inline-flex", alignItems: "center", justifyContent: "center"`;
 
-          if (element.buttonAction === "link") {
-            const target = element.openNewTab
-              ? ' target="_blank" rel="noreferrer"'
-              : "";
-
-            return `      <a href=${actionValue}${target} style={{ ${buttonStyle} }}>${element.text}</a>`;
-          }
-
-          if (element.buttonAction === "email") {
-            const emailAddress = JSON.stringify(
-              `mailto:${element.actionValue ?? ""}`,
-            );
-
-            return `      <a href=${emailAddress} style={{ ${buttonStyle} }}>${element.text}</a>`;
-          }
-
-          if (element.buttonAction === "phone") {
-            const phoneNumber = JSON.stringify(
-              `tel:${element.actionValue ?? ""}`,
-            );
-
-            return `      <a href=${phoneNumber} style={{ ${buttonStyle} }}>${element.text}</a>`;
-          }
-
-          if (element.buttonAction === "alert") {
-            return `      <button type="button" onClick={() => window.alert(${actionValue})} style={{ ${buttonStyle} }}>${element.text}</button>`;
-          }
-
-          return `      <button type="button" style={{ ${buttonStyle} }}>${element.text}</button>`;
+          return `      <button id="element-${element.id}" type="button" onClick={() => runActions(${actionsJson})} style={{ ${buttonStyle} }}>${element.text}</button>`;
         }
 
         case "input":
-          return `      <input placeholder=${text} style={{ color: "${element.color}", backgroundColor: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", padding: 12, border: "1px solid #cbd5e1", borderRadius: 8 }} />`;
+          return `      <input id="element-${element.id}" placeholder=${text} style={{ color: "${element.color}", backgroundColor: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", padding: 12, border: "1px solid #cbd5e1", borderRadius: 8 }} />`;
 
         case "shape": {
           if (element.shapeType === "line") {
-            return `      <div style={{ ${layoutStyle}, ${appearanceStyle}, display: "flex", alignItems: "center" }}><div style={{ width: "100%", height: ${element.shapeThickness ?? 4}, backgroundColor: "${element.background}" }} /></div>`;
+            return `      <div id="element-${element.id}" style={{ ${layoutStyle}, ${appearanceStyle}, display: "flex", alignItems: "center" }}><div style={{ width: "100%", height: ${element.shapeThickness ?? 4}, backgroundColor: "${element.background}" }} /></div>`;
           }
 
           const shapeRadius =
@@ -500,7 +618,7 @@ function generateCode(elements: CanvasElement[]) {
               ? "50%"
               : `${element.borderRadius ?? 0}px`;
 
-          return `      <div style={{ ${layoutStyle}, ${appearanceStyle}, backgroundColor: "${element.background}", borderRadius: "${shapeRadius}" }} />`;
+          return `      <div id="element-${element.id}" style={{ ${layoutStyle}, ${appearanceStyle}, backgroundColor: "${element.background}", borderRadius: "${shapeRadius}" }} />`;
         }
 
         case "image": {
@@ -508,16 +626,148 @@ function generateCode(elements: CanvasElement[]) {
             element.imageSrc ?? "",
           );
 
-          return `      <div style={{ ${layoutStyle}, ${appearanceStyle} }}><img src=${source} alt=${text} style={{ width: "100%", height: "100%", objectFit: "${element.objectFit ?? "cover"}", borderRadius: ${element.borderRadius ?? 12} }} /></div>`;
+          return `      <div id="element-${element.id}" style={{ ${layoutStyle}, ${appearanceStyle} }}><img src=${source} alt=${text} style={{ width: "100%", height: "100%", objectFit: "${element.objectFit ?? "cover"}", borderRadius: ${element.borderRadius ?? 12} }} /></div>`;
         }
 
         case "container":
-          return `      <div style={{ color: "${element.color}", backgroundColor: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", minHeight: 128, padding: 24, borderRadius: 12 }}>${element.text}</div>`;
+          return `      <div id="element-${element.id}" style={{ color: "${element.color}", backgroundColor: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", minHeight: 128, padding: 24, borderRadius: 12 }}>${element.text}</div>`;
       }
     })
     .join("\n");
 
   return `"use client";
+
+type GeneratedAction = {
+  type: string;
+  value?: string;
+  payload?: string;
+  method?: string;
+  delayMs?: number;
+  pluginId?: string;
+  pluginActionId?: string;
+  pluginOptions?: Record<string, unknown>;
+};
+
+async function runActions(actions: GeneratedAction[]) {
+  for (const action of actions) {
+    if ((action.delayMs ?? 0) > 0) {
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, action.delayMs),
+      );
+    }
+
+    const value = action.value ?? "";
+    const target = value
+      ? document.getElementById(value)
+      : null;
+
+    if (action.type === "plugin") {
+      const response = await fetch(
+        "http://localhost:3210/api/execute",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            pluginId: action.pluginId,
+            actionId: action.pluginActionId,
+            options: action.pluginOptions ?? {},
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Comando plugin fallito");
+      }
+
+      continue;
+    }
+
+    if (action.type === "alert") window.alert(value);
+    if (action.type === "confirm" && !window.confirm(value)) break;
+    if (action.type === "link") window.open(value, "_blank");
+    if (action.type === "email") window.location.href = "mailto:" + value;
+    if (action.type === "phone") window.location.href = "tel:" + value;
+    if (action.type === "copy") await navigator.clipboard.writeText(value);
+
+    if (action.type === "download") {
+      const link = document.createElement("a");
+      link.href = value;
+      link.download = action.payload ?? "";
+      link.click();
+    }
+
+    if (action.type === "scroll") {
+      target?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    if (action.type === "show" && target) target.style.display = "none" ? "" : "";
+    if (action.type === "hide" && target) target.style.display = "none";
+
+    if (action.type === "toggle" && target) {
+      target.style.display =
+        target.style.display === "none" ? "" : "none";
+    }
+
+    if (action.type === "setText" && target) {
+      target.textContent = action.payload ?? "";
+    }
+
+    if (action.type === "api") {
+      await fetch(value, {
+        method: action.method ?? "GET",
+        headers: { "Content-Type": "application/json" },
+        body:
+          action.method === "GET"
+            ? undefined
+            : action.payload || undefined,
+      });
+    }
+
+    if (action.type === "submit" && target instanceof HTMLFormElement) {
+      target.requestSubmit();
+    }
+
+    if (action.type === "play" && target instanceof HTMLMediaElement) {
+      await target.play();
+    }
+
+    if (action.type === "pause" && target instanceof HTMLMediaElement) {
+      target.pause();
+    }
+
+    if (action.type === "openModal" && target instanceof HTMLDialogElement) {
+      target.showModal();
+    }
+
+    if (action.type === "closeModal" && target instanceof HTMLDialogElement) {
+      target.close();
+    }
+
+    if (action.type === "setStorage") {
+      localStorage.setItem(value, action.payload ?? "");
+    }
+
+    if (action.type === "removeStorage") {
+      localStorage.removeItem(value);
+    }
+
+    if (action.type === "customEvent") {
+      window.dispatchEvent(
+        new CustomEvent(value, { detail: action.payload }),
+      );
+    }
+
+    if (action.type === "fullscreen") {
+      await (target ?? document.documentElement).requestFullscreen?.();
+    }
+
+    if (action.type === "back") history.back();
+    if (action.type === "reload") location.reload();
+    if (action.type === "print") window.print();
+  }
+}
 
 export default function GeneratedPage() {
   return (
@@ -552,6 +802,11 @@ export default function Home() {
   const [projectName, setProjectName] = useState("Nuovo progetto");
   const importInputRef = useRef<HTMLInputElement>(null);
 
+  const [pluginCatalog, setPluginCatalog] =
+    useState<PluginManifest[]>([]);
+  const [pluginGatewayOnline, setPluginGatewayOnline] =
+    useState(false);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -564,6 +819,46 @@ export default function Home() {
 
   const selected = elements.find((element) => element.id === selectedId);
   const generatedCode = useMemo(() => generateCode(elements), [elements]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadPlugins() {
+      try {
+        const response = await fetch(
+          `${PLUGIN_GATEWAY_URL}/api/plugins`,
+        );
+
+        if (!response.ok) {
+          throw new Error("Gateway non disponibile");
+        }
+
+        const plugins =
+          (await response.json()) as PluginManifest[];
+
+        if (active) {
+          setPluginCatalog(plugins);
+          setPluginGatewayOnline(true);
+        }
+      } catch {
+        if (active) {
+          setPluginGatewayOnline(false);
+        }
+      }
+    }
+
+    void loadPlugins();
+
+    const timer = window.setInterval(
+      () => void loadPlugins(),
+      10000,
+    );
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1406,38 +1701,329 @@ export default function Home() {
     }
   }
 
-  function previewButtonAction(element: CanvasElement) {
-    const action = element.buttonAction ?? "none";
-    const value = element.actionValue ?? "";
+  async function executePreviewAction(
+    action: ElementAction,
+  ): Promise<boolean> {
+    if ((action.delayMs ?? 0) > 0) {
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, action.delayMs),
+      );
+    }
 
-    if (action === "none") {
+    const value = action.value ?? "";
+    const target = value
+      ? document.getElementById(value)
+      : null;
+
+    switch (action.type) {
+      case "plugin": {
+        if (!action.pluginId || !action.pluginActionId) {
+          window.alert(
+            "Seleziona un plugin e un comando.",
+          );
+          return false;
+        }
+
+        try {
+          const response = await fetch(
+            `${PLUGIN_GATEWAY_URL}/api/execute`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                pluginId: action.pluginId,
+                actionId: action.pluginActionId,
+                options: action.pluginOptions ?? {},
+              }),
+            },
+          );
+
+          const result = (await response.json()) as {
+            ok?: boolean;
+            error?: string;
+          };
+
+          if (!response.ok || !result.ok) {
+            throw new Error(
+              result.error ?? "Comando plugin fallito",
+            );
+          }
+
+          window.alert("Comando plugin eseguito.");
+          return true;
+        } catch (error) {
+          window.alert(
+            error instanceof Error
+              ? error.message
+              : "Errore del plugin",
+          );
+          return false;
+        }
+      }
+
+      case "alert":
+        window.alert(value);
+        return true;
+
+      case "confirm":
+        return window.confirm(value || "Continuare?");
+
+      case "link":
+        window.open(value, "_blank", "noopener,noreferrer");
+        return true;
+
+      case "email":
+        window.location.href = `mailto:${value}`;
+        return true;
+
+      case "phone":
+        window.location.href = `tel:${value}`;
+        return true;
+
+      case "copy":
+        await navigator.clipboard.writeText(value);
+        return true;
+
+      case "download": {
+        const link = document.createElement("a");
+        link.href = value;
+        link.download = action.payload ?? "";
+        link.click();
+        return true;
+      }
+
+      case "scroll":
+        target?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        return true;
+
+      case "show":
+        if (target) target.style.display = "";
+        return true;
+
+      case "hide":
+        if (target) target.style.display = "none";
+        return true;
+
+      case "toggle":
+        if (target) {
+          target.style.display =
+            target.style.display === "none" ? "" : "none";
+        }
+        return true;
+
+      case "setText":
+        if (target) {
+          target.textContent = action.payload ?? "";
+        }
+        return true;
+
+      case "api": {
+        const method = action.method ?? "GET";
+
+        const response = await fetch(value, {
+          method,
+          headers:
+            method === "GET"
+              ? undefined
+              : { "Content-Type": "application/json" },
+          body:
+            method === "GET"
+              ? undefined
+              : action.payload || undefined,
+        });
+
+        window.alert(
+          `Risposta API: ${response.status} ${response.statusText}`,
+        );
+        return response.ok;
+      }
+
+      case "submit":
+        if (target instanceof HTMLFormElement) {
+          target.requestSubmit();
+        }
+        return true;
+
+      case "play":
+        if (target instanceof HTMLMediaElement) {
+          await target.play();
+        }
+        return true;
+
+      case "pause":
+        if (target instanceof HTMLMediaElement) {
+          target.pause();
+        }
+        return true;
+
+      case "openModal":
+        if (target instanceof HTMLDialogElement) {
+          target.showModal();
+        }
+        return true;
+
+      case "closeModal":
+        if (target instanceof HTMLDialogElement) {
+          target.close();
+        }
+        return true;
+
+      case "setStorage":
+        window.localStorage.setItem(
+          value,
+          action.payload ?? "",
+        );
+        return true;
+
+      case "removeStorage":
+        window.localStorage.removeItem(value);
+        return true;
+
+      case "customEvent":
+        window.dispatchEvent(
+          new CustomEvent(value, {
+            detail: action.payload,
+          }),
+        );
+        return true;
+
+      case "fullscreen":
+        await (target ?? document.documentElement)
+          .requestFullscreen?.();
+        return true;
+
+      case "back":
+        window.alert(
+          "Nell'app generata tornerà alla pagina precedente.",
+        );
+        return true;
+
+      case "reload":
+        window.alert(
+          "Nell'app generata ricaricherà la pagina.",
+        );
+        return true;
+
+      case "print":
+        window.print();
+        return true;
+    }
+  }
+
+  async function previewButtonActions(
+    element: CanvasElement,
+  ) {
+    const actions = getElementActions(element);
+
+    if (!actions.length) {
       window.alert("Nessuna azione configurata.");
       return;
     }
 
-    if (!value.trim()) {
-      window.alert("Inserisci un valore per questa azione.");
+    for (const action of actions) {
+      const shouldContinue =
+        await executePreviewAction(action);
+
+      if (!shouldContinue) break;
+    }
+  }
+
+  function updatePluginOption(
+    actionId: string,
+    fieldId: string,
+    value: unknown,
+  ) {
+    if (!selected) return;
+
+    const action = getElementActions(selected).find(
+      (item) => item.id === actionId,
+    );
+
+    if (!action) return;
+
+    updateButtonAction(actionId, {
+      pluginOptions: {
+        ...(action.pluginOptions ?? {}),
+        [fieldId]: value,
+      },
+    });
+  }
+
+  function addButtonAction() {
+    if (!selected) return;
+
+    updateSelected({
+      actions: [
+        ...getElementActions(selected),
+        {
+          id: nanoid(),
+          type: "alert",
+          value: "Nuova azione",
+          method: "GET",
+          delayMs: 0,
+        },
+      ],
+    });
+  }
+
+  function updateButtonAction(
+    actionId: string,
+    changes: Partial<ElementAction>,
+  ) {
+    if (!selected) return;
+
+    updateSelected({
+      actions: getElementActions(selected).map((action) =>
+        action.id === actionId
+          ? { ...action, ...changes }
+          : action,
+      ),
+    });
+  }
+
+  function removeButtonAction(actionId: string) {
+    if (!selected) return;
+
+    updateSelected({
+      actions: getElementActions(selected).filter(
+        (action) => action.id !== actionId,
+      ),
+    });
+  }
+
+  function moveButtonAction(
+    actionId: string,
+    direction: "up" | "down",
+  ) {
+    if (!selected) return;
+
+    const actions = [...getElementActions(selected)];
+    const index = actions.findIndex(
+      (action) => action.id === actionId,
+    );
+
+    const targetIndex =
+      direction === "up" ? index - 1 : index + 1;
+
+    if (
+      index < 0 ||
+      targetIndex < 0 ||
+      targetIndex >= actions.length
+    ) {
       return;
     }
 
-    if (action === "alert") {
-      window.alert(value);
-      return;
-    }
+    [actions[index], actions[targetIndex]] = [
+      actions[targetIndex],
+      actions[index],
+    ];
 
-    if (action === "link") {
-      window.open(value, "_blank", "noopener,noreferrer");
-      return;
-    }
-
-    if (action === "email") {
-      window.alert(`Aprirà il programma email: ${value}`);
-      return;
-    }
-
-    if (action === "phone") {
-      window.alert(`Avvierà una chiamata verso: ${value}`);
-    }
+    updateSelected({ actions });
   }
 
   async function copyCode() {
@@ -1702,6 +2288,7 @@ export default function Home() {
               {elements.map((element) => (
                 <div
                   key={element.id}
+                  id={`element-${element.id}`}
                   draggable={element.positionMode !== "absolute" && !element.locked}
                   tabIndex={0}
                   onKeyDown={(event) => {
@@ -2154,100 +2741,468 @@ export default function Home() {
 
                 {selected.type === "button" && (
                   <div className="space-y-4 rounded-xl border border-indigo-700 bg-indigo-950/30 p-4">
-                    <h3 className="font-semibold text-white">
-                      Azione pulsante
-                    </h3>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-white">
+                          Action Builder
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          Le azioni vengono eseguite dall'alto verso il basso.
+                        </p>
+                      </div>
 
-                    <label className="block text-sm">
-                      <span className="mb-1 block text-slate-400">
-                        Tipo di azione
-                      </span>
-                      <select
-                        value={selected.buttonAction ?? "none"}
-                        onChange={(event) =>
-                          updateSelected({
-                            buttonAction: event.target.value as
-                              | "none"
-                              | "link"
-                              | "alert"
-                              | "email"
-                              | "phone",
-                          })
-                        }
-                        className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                      <button
+                        type="button"
+                        onClick={addButtonAction}
+                        className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold hover:bg-indigo-500"
                       >
-                        <option value="none">Nessuna</option>
-                        <option value="link">Apri collegamento</option>
-                        <option value="alert">Mostra messaggio</option>
-                        <option value="email">Invia email</option>
-                        <option value="phone">Chiama numero</option>
-                      </select>
-                    </label>
+                        + Azione
+                      </button>
+                    </div>
 
-                    {selected.buttonAction !== "none" && (
-                      <label className="block text-sm">
-                        <span className="mb-1 block text-slate-400">
-                          {selected.buttonAction === "link"
-                            ? "Indirizzo URL"
-                            : selected.buttonAction === "email"
-                              ? "Indirizzo email"
-                              : selected.buttonAction === "phone"
-                                ? "Numero telefonico"
-                                : "Messaggio"}
-                        </span>
-
-                        <input
-                          type={
-                            selected.buttonAction === "email"
-                              ? "email"
-                              : selected.buttonAction === "link"
-                                ? "url"
-                                : "text"
-                          }
-                          value={selected.actionValue ?? ""}
-                          onChange={(event) =>
-                            updateSelected({
-                              actionValue: event.target.value,
-                            })
-                          }
-                          placeholder={
-                            selected.buttonAction === "link"
-                              ? "https://..."
-                              : selected.buttonAction === "email"
-                                ? "nome@dominio.it"
-                                : selected.buttonAction === "phone"
-                                  ? "+39..."
-                                  : "Messaggio da mostrare"
-                          }
-                          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
-                        />
-                      </label>
+                    {getElementActions(selected).length === 0 && (
+                      <p className="rounded-lg border border-dashed border-slate-700 p-3 text-center text-sm text-slate-500">
+                        Nessuna azione configurata.
+                      </p>
                     )}
 
-                    {selected.buttonAction === "link" && (
-                      <label className="flex items-center gap-3 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={selected.openNewTab ?? true}
-                          onChange={(event) =>
-                            updateSelected({
-                              openNewTab: event.target.checked,
-                            })
-                          }
-                          className="h-4 w-4"
-                        />
-                        Apri in una nuova scheda
-                      </label>
+                    {getElementActions(selected).map(
+                      (action, actionIndex) => (
+                        <div
+                          key={action.id}
+                          className="space-y-3 rounded-xl border border-slate-700 bg-slate-900 p-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-indigo-300">
+                              Azione {actionIndex + 1}
+                            </span>
+
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  moveButtonAction(
+                                    action.id,
+                                    "up",
+                                  )
+                                }
+                                className="rounded bg-slate-700 px-2 py-1 text-xs"
+                              >
+                                ↑
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  moveButtonAction(
+                                    action.id,
+                                    "down",
+                                  )
+                                }
+                                className="rounded bg-slate-700 px-2 py-1 text-xs"
+                              >
+                                ↓
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeButtonAction(action.id)
+                                }
+                                className="rounded bg-red-700 px-2 py-1 text-xs"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+
+                          <select
+                            value={action.type}
+                            onChange={(event) =>
+                              updateButtonAction(action.id, {
+                                type: event.target
+                                  .value as ActionType,
+                              })
+                            }
+                            className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-sm"
+                          >
+                            {actionOptions.map((option) => (
+                              <option
+                                key={option.type}
+                                value={option.type}
+                              >
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+
+                          {action.type === "plugin" && (
+                            <div className="space-y-3 rounded-lg border border-violet-700 bg-violet-950/30 p-3">
+                              <div
+                                className={`rounded-lg px-3 py-2 text-xs ${
+                                  pluginGatewayOnline
+                                    ? "bg-emerald-950 text-emerald-300"
+                                    : "bg-red-950 text-red-300"
+                                }`}
+                              >
+                                Gateway plugin:{" "}
+                                {pluginGatewayOnline
+                                  ? "connesso"
+                                  : "non disponibile"}
+                              </div>
+
+                              <label className="block text-sm">
+                                <span className="mb-1 block text-slate-400">
+                                  Plugin
+                                </span>
+
+                                <select
+                                  value={action.pluginId ?? ""}
+                                  onChange={(event) =>
+                                    updateButtonAction(
+                                      action.id,
+                                      {
+                                        pluginId:
+                                          event.target.value,
+                                        pluginActionId: "",
+                                        pluginOptions: {},
+                                      },
+                                    )
+                                  }
+                                  className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2"
+                                >
+                                  <option value="">
+                                    Seleziona plugin
+                                  </option>
+
+                                  {pluginCatalog.map((plugin) => (
+                                    <option
+                                      key={plugin.id}
+                                      value={plugin.id}
+                                    >
+                                      {plugin.name} v
+                                      {plugin.version}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+
+                              <label className="block text-sm">
+                                <span className="mb-1 block text-slate-400">
+                                  Comando
+                                </span>
+
+                                <select
+                                  value={
+                                    action.pluginActionId ?? ""
+                                  }
+                                  onChange={(event) =>
+                                    updateButtonAction(
+                                      action.id,
+                                      {
+                                        pluginActionId:
+                                          event.target.value,
+                                        pluginOptions: {},
+                                      },
+                                    )
+                                  }
+                                  disabled={!action.pluginId}
+                                  className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2 disabled:opacity-50"
+                                >
+                                  <option value="">
+                                    Seleziona comando
+                                  </option>
+
+                                  {pluginCatalog
+                                    .find(
+                                      (plugin) =>
+                                        plugin.id ===
+                                        action.pluginId,
+                                    )
+                                    ?.actions.map(
+                                      (pluginAction) => (
+                                        <option
+                                          key={pluginAction.id}
+                                          value={
+                                            pluginAction.id
+                                          }
+                                        >
+                                          {pluginAction.name}
+                                        </option>
+                                      ),
+                                    )}
+                                </select>
+                              </label>
+
+                              {pluginCatalog
+                                .find(
+                                  (plugin) =>
+                                    plugin.id ===
+                                    action.pluginId,
+                                )
+                                ?.actions.find(
+                                  (pluginAction) =>
+                                    pluginAction.id ===
+                                    action.pluginActionId,
+                                )
+                                ?.fields.map((field) => (
+                                  <label
+                                    key={field.id}
+                                    className="block text-sm"
+                                  >
+                                    <span className="mb-1 block text-slate-400">
+                                      {field.label}
+                                      {field.required ? " *" : ""}
+                                    </span>
+
+                                    {field.type === "select" ? (
+                                      <select
+                                        value={String(
+                                          action
+                                            .pluginOptions?.[
+                                            field.id
+                                          ] ??
+                                            field.defaultValue ??
+                                            "",
+                                        )}
+                                        onChange={(event) =>
+                                          updatePluginOption(
+                                            action.id,
+                                            field.id,
+                                            event.target.value,
+                                          )
+                                        }
+                                        className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2"
+                                      >
+                                        {field.choices?.map(
+                                          (choice) => (
+                                            <option
+                                              key={choice.id}
+                                              value={choice.id}
+                                            >
+                                              {choice.label}
+                                            </option>
+                                          ),
+                                        )}
+                                      </select>
+                                    ) : field.type ===
+                                      "boolean" ? (
+                                      <input
+                                        type="checkbox"
+                                        checked={Boolean(
+                                          action
+                                            .pluginOptions?.[
+                                            field.id
+                                          ] ??
+                                            field.defaultValue ??
+                                            false,
+                                        )}
+                                        onChange={(event) =>
+                                          updatePluginOption(
+                                            action.id,
+                                            field.id,
+                                            event.target.checked,
+                                          )
+                                        }
+                                        className="h-4 w-4"
+                                      />
+                                    ) : field.type ===
+                                      "textarea" ? (
+                                      <textarea
+                                        value={String(
+                                          action
+                                            .pluginOptions?.[
+                                            field.id
+                                          ] ??
+                                            field.defaultValue ??
+                                            "",
+                                        )}
+                                        onChange={(event) =>
+                                          updatePluginOption(
+                                            action.id,
+                                            field.id,
+                                            event.target.value,
+                                          )
+                                        }
+                                        className="min-h-24 w-full rounded-lg border border-slate-700 bg-slate-950 p-2"
+                                      />
+                                    ) : (
+                                      <input
+                                        type={field.type}
+                                        value={String(
+                                          action
+                                            .pluginOptions?.[
+                                            field.id
+                                          ] ??
+                                            field.defaultValue ??
+                                            "",
+                                        )}
+                                        onChange={(event) =>
+                                          updatePluginOption(
+                                            action.id,
+                                            field.id,
+                                            field.type ===
+                                              "number"
+                                              ? Number(
+                                                  event.target
+                                                    .value,
+                                                )
+                                              : event.target
+                                                  .value,
+                                          )
+                                        }
+                                        className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2"
+                                      />
+                                    )}
+                                  </label>
+                                ))}
+                            </div>
+                          )}
+
+                          {targetActionTypes.includes(
+                            action.type,
+                          ) ? (
+                            <label className="block text-sm">
+                              <span className="mb-1 block text-slate-400">
+                                Elemento destinazione
+                              </span>
+                              <select
+                                value={action.value ?? ""}
+                                onChange={(event) =>
+                                  updateButtonAction(
+                                    action.id,
+                                    {
+                                      value:
+                                        event.target.value,
+                                    },
+                                  )
+                                }
+                                className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2"
+                              >
+                                <option value="">
+                                  Seleziona elemento
+                                </option>
+
+                                {elements.map((element) => (
+                                  <option
+                                    key={element.id}
+                                    value={`element-${element.id}`}
+                                  >
+                                    {element.text ||
+                                      element.type}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          ) : ![
+                              "back",
+                              "reload",
+                              "print",
+                              "plugin",
+                            ].includes(action.type) ? (
+                            <label className="block text-sm">
+                              <span className="mb-1 block text-slate-400">
+                                Valore
+                              </span>
+                              <input
+                                type="text"
+                                value={action.value ?? ""}
+                                onChange={(event) =>
+                                  updateButtonAction(
+                                    action.id,
+                                    {
+                                      value:
+                                        event.target.value,
+                                    },
+                                  )
+                                }
+                                className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2"
+                              />
+                            </label>
+                          ) : null}
+
+                          {action.type === "api" && (
+                            <select
+                              value={action.method ?? "GET"}
+                              onChange={(event) =>
+                                updateButtonAction(action.id, {
+                                  method: event.target
+                                    .value as ElementAction["method"],
+                                })
+                              }
+                              className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2"
+                            >
+                              <option value="GET">GET</option>
+                              <option value="POST">POST</option>
+                              <option value="PUT">PUT</option>
+                              <option value="PATCH">PATCH</option>
+                              <option value="DELETE">
+                                DELETE
+                              </option>
+                            </select>
+                          )}
+
+                          {[
+                            "api",
+                            "setText",
+                            "setStorage",
+                            "customEvent",
+                            "download",
+                          ].includes(action.type) && (
+                            <label className="block text-sm">
+                              <span className="mb-1 block text-slate-400">
+                                Dati aggiuntivi
+                              </span>
+                              <textarea
+                                value={action.payload ?? ""}
+                                onChange={(event) =>
+                                  updateButtonAction(
+                                    action.id,
+                                    {
+                                      payload:
+                                        event.target.value,
+                                    },
+                                  )
+                                }
+                                className="min-h-20 w-full rounded-lg border border-slate-700 bg-slate-950 p-2"
+                              />
+                            </label>
+                          )}
+
+                          <label className="block text-sm">
+                            <span className="mb-1 block text-slate-400">
+                              Ritardo: {action.delayMs ?? 0} ms
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="100"
+                              value={action.delayMs ?? 0}
+                              onChange={(event) =>
+                                updateButtonAction(action.id, {
+                                  delayMs: Math.max(
+                                    0,
+                                    Number(
+                                      event.target.value,
+                                    ),
+                                  ),
+                                })
+                              }
+                              className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2"
+                            />
+                          </label>
+                        </div>
+                      ),
                     )}
 
                     <button
                       type="button"
                       onClick={() =>
-                        previewButtonAction(selected)
+                        previewButtonActions(selected)
                       }
-                      className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold hover:bg-indigo-500"
+                      className="w-full rounded-lg bg-indigo-600 px-3 py-2 font-semibold hover:bg-indigo-500"
                     >
-                      Prova azione
+                      Prova sequenza
                     </button>
                   </div>
                 )}
@@ -3135,6 +4090,8 @@ export default function Home() {
     </DndContext>
   );
 }
+
+
 
 
 

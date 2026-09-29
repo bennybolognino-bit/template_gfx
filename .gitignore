@@ -41,3 +41,6 @@ yarn-error.log*
 next-env.d.ts
 
 backups/
+
+gateway/node_modules/
+gateway/dist/
