@@ -50,6 +50,10 @@ type CanvasElement = {
   objectFit?: "cover" | "contain" | "fill";
   borderRadius?: number;
   opacity?: number;
+  borderWidth?: number;
+  borderColor?: string;
+  rotation?: number;
+  shadow?: "none" | "small" | "medium" | "large";
 };
 
 const palette: Array<{
@@ -245,7 +249,6 @@ function CanvasItem({
           className={`flex h-full w-full cursor-pointer items-center justify-center border border-dashed border-slate-400 bg-slate-100 text-slate-500 ${commonClass}`}
           style={{
             borderRadius: element.borderRadius ?? 12,
-            opacity: (element.opacity ?? 100) / 100,
           }}
         >
           Seleziona o carica un’immagine
@@ -272,7 +275,6 @@ function CanvasItem({
               ? "100% 100%"
               : element.objectFit ?? "cover",
           borderRadius: element.borderRadius ?? 12,
-          opacity: (element.opacity ?? 100) / 100,
         }}
       />
     );
@@ -319,29 +321,41 @@ function generateCode(elements: CanvasElement[]) {
           ? `position: "absolute", left: ${element.x ?? 0}, top: ${element.y ?? 0}, width: ${element.widthPx ?? 320}, height: ${element.heightPx ?? 120}`
           : `gridColumn: "${gridColumn}", gridRow: "${gridRow}"`;
 
+      const shadowValue =
+        element.shadow === "small"
+          ? "0 2px 8px rgba(15, 23, 42, 0.18)"
+          : element.shadow === "medium"
+            ? "0 8px 24px rgba(15, 23, 42, 0.24)"
+            : element.shadow === "large"
+              ? "0 18px 50px rgba(15, 23, 42, 0.32)"
+              : "none";
+
+      const appearanceStyle =
+        `border: "${element.borderWidth ?? 0}px solid ${element.borderColor ?? "#0f172a"}", borderRadius: ${element.borderRadius ?? 0}, transform: "rotate(${element.rotation ?? 0}deg)", boxShadow: "${shadowValue}"`;
+
       switch (element.type) {
         case "heading":
-          return `      <h1 style={{ color: "${element.color}", fontSize: ${element.fontSize}, ${layoutStyle}, textAlign: "${element.alignment ?? "left"}", fontWeight: 700 }}>${element.text}</h1>`;
+          return `      <h1 style={{ color: "${element.color}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", fontWeight: 700 }}>${element.text}</h1>`;
 
         case "text":
-          return `      <p style={{ color: "${element.color}", fontSize: ${element.fontSize}, ${layoutStyle}, textAlign: "${element.alignment ?? "left"}" }}>${element.text}</p>`;
+          return `      <p style={{ color: "${element.color}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}" }}>${element.text}</p>`;
 
         case "button":
-          return `      <button type="button" style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, textAlign: "${element.alignment ?? "left"}", padding: "12px 20px", borderRadius: 8 }}>${element.text}</button>`;
+          return `      <button type="button" style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", padding: "12px 20px", borderRadius: 8 }}>${element.text}</button>`;
 
         case "input":
-          return `      <input placeholder=${text} style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, textAlign: "${element.alignment ?? "left"}", padding: 12, border: "1px solid #cbd5e1", borderRadius: 8 }} />`;
+          return `      <input placeholder=${text} style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", padding: 12, border: "1px solid #cbd5e1", borderRadius: 8 }} />`;
 
         case "image": {
           const source = JSON.stringify(
             element.imageSrc ?? "",
           );
 
-          return `      <div style={{ ${layoutStyle} }}><img src=${source} alt=${text} style={{ width: "100%", height: "100%", objectFit: "${element.objectFit ?? "cover"}", borderRadius: ${element.borderRadius ?? 12}, opacity: ${(element.opacity ?? 100) / 100} }} /></div>`;
+          return `      <div style={{ ${layoutStyle}, ${appearanceStyle} }}><img src=${source} alt=${text} style={{ width: "100%", height: "100%", objectFit: "${element.objectFit ?? "cover"}", borderRadius: ${element.borderRadius ?? 12} }} /></div>`;
         }
 
         case "container":
-          return `      <div style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, textAlign: "${element.alignment ?? "left"}", minHeight: 128, padding: 24, borderRadius: 12 }}>${element.text}</div>`;
+          return `      <div style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", minHeight: 128, padding: 24, borderRadius: 12 }}>${element.text}</div>`;
       }
     })
     .join("\n");
@@ -1472,14 +1486,35 @@ export default function Home() {
                             }`
                           : `span ${element.gridRowSpan ?? 3}`,
                     textAlign: element.alignment ?? "left",
+                    boxSizing: "border-box",
+                    borderStyle:
+                      (element.borderWidth ?? 0) > 0
+                        ? "solid"
+                        : undefined,
+                    borderWidth: element.borderWidth ?? 0,
+                    borderColor:
+                      element.borderColor ?? "#0f172a",
+                    borderRadius: element.borderRadius ?? 0,
+                    opacity: (element.opacity ?? 100) / 100,
+                    transform: `rotate(${element.rotation ?? 0}deg)`,
+                    boxShadow:
+                      element.shadow === "small"
+                        ? "0 2px 8px rgba(15, 23, 42, 0.18)"
+                        : element.shadow === "medium"
+                          ? "0 8px 24px rgba(15, 23, 42, 0.24)"
+                          : element.shadow === "large"
+                            ? "0 18px 50px rgba(15, 23, 42, 0.32)"
+                            : "none",
                     zIndex:
                       element.positionMode === "absolute"
                         ? element.zIndex ?? 1
                         : undefined,
                     overflow:
-                      element.positionMode === "absolute"
-                        ? "auto"
-                        : undefined,
+                      element.type === "image"
+                        ? "hidden"
+                        : element.positionMode === "absolute"
+                          ? "auto"
+                          : undefined,
                   }}
                 >
                   <CanvasItem
@@ -1685,6 +1720,131 @@ export default function Home() {
                     </button>
                   </div>
                 )}
+
+                <div className="space-y-4 rounded-xl border border-emerald-700 bg-emerald-950/20 p-4">
+                  <h3 className="font-semibold text-white">
+                    Aspetto
+                  </h3>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        Bordo px
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="30"
+                        value={selected.borderWidth ?? 0}
+                        onChange={(event) =>
+                          updateSelected({
+                            borderWidth: Math.max(
+                              0,
+                              Number(event.target.value),
+                            ),
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                      />
+                    </label>
+
+                    <label className="text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        Colore bordo
+                      </span>
+                      <input
+                        type="color"
+                        value={selected.borderColor ?? "#0f172a"}
+                        onChange={(event) =>
+                          updateSelected({
+                            borderColor: event.target.value,
+                          })
+                        }
+                        className="h-10 w-full rounded"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="block text-sm">
+                    <span className="mb-1 block text-slate-400">
+                      Angoli: {selected.borderRadius ?? 0}px
+                    </span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="150"
+                      value={selected.borderRadius ?? 0}
+                      onChange={(event) =>
+                        updateSelected({
+                          borderRadius: Number(
+                            event.target.value,
+                          ),
+                        })
+                      }
+                      className="w-full"
+                    />
+                  </label>
+
+                  <label className="block text-sm">
+                    <span className="mb-1 block text-slate-400">
+                      Opacità: {selected.opacity ?? 100}%
+                    </span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={selected.opacity ?? 100}
+                      onChange={(event) =>
+                        updateSelected({
+                          opacity: Number(event.target.value),
+                        })
+                      }
+                      className="w-full"
+                    />
+                  </label>
+
+                  <label className="block text-sm">
+                    <span className="mb-1 block text-slate-400">
+                      Rotazione: {selected.rotation ?? 0}°
+                    </span>
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      value={selected.rotation ?? 0}
+                      onChange={(event) =>
+                        updateSelected({
+                          rotation: Number(event.target.value),
+                        })
+                      }
+                      className="w-full"
+                    />
+                  </label>
+
+                  <label className="block text-sm">
+                    <span className="mb-1 block text-slate-400">
+                      Ombra
+                    </span>
+                    <select
+                      value={selected.shadow ?? "none"}
+                      onChange={(event) =>
+                        updateSelected({
+                          shadow: event.target.value as
+                            | "none"
+                            | "small"
+                            | "medium"
+                            | "large",
+                        })
+                      }
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                    >
+                      <option value="none">Nessuna</option>
+                      <option value="small">Piccola</option>
+                      <option value="medium">Media</option>
+                      <option value="large">Grande</option>
+                    </select>
+                  </label>
+                </div>
 
                 <div className="rounded-xl border border-blue-700 bg-blue-950/30 p-4">
                   <h3 className="mb-3 font-semibold text-white">
@@ -2182,6 +2342,7 @@ export default function Home() {
     </DndContext>
   );
 }
+
 
 
 
