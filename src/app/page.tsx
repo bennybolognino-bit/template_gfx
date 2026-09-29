@@ -48,7 +48,7 @@ import { CanvasItem } from "@/editor/components/CanvasItem";
 import { ConnectionManagerModal } from "@/editor/components/ConnectionManagerModal";
 import { CodePreviewModal } from "@/editor/components/CodePreviewModal";
 import { MultiSelectionTools } from "@/editor/components/MultiSelectionTools";
-import { PaletteItem } from "@/editor/components/PaletteItem";
+import { ComponentsLayersPanel } from "@/editor/components/ComponentsLayersPanel";
 import { generateCode } from "@/editor/generator";
 export default function Home() {
   const [elements, setElements] = useState<CanvasElement[]>([]);
@@ -1756,122 +1756,14 @@ export default function Home() {
         </header>
 
         <div className="grid h-[calc(100vh-4rem)] grid-cols-[250px_minmax(500px,1fr)_300px]">
-          <aside className="overflow-y-auto border-r border-slate-800 p-4">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              Componenti
-            </h2>
-
-            <div className="space-y-3">
-              {palette.map((item) => (
-                <PaletteItem key={item.type} {...item} />
-              ))}
-            </div>
-
-            <div className="mt-8 border-t border-slate-800 pt-5">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-                Livelli
-              </h2>
-
-              {elements.length === 0 && (
-                <p className="text-xs text-slate-500">
-                  Nessun elemento presente.
-                </p>
-              )}
-
-              <div className="space-y-2">
-                {[...elements].reverse().map((element) => (
-                  <div
-                    key={element.id}
-                    className={`rounded-lg border p-2 ${
-                      selectedIds.includes(element.id)
-                        ? "border-blue-500 bg-blue-950/50"
-                        : "border-slate-700 bg-slate-800"
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        selectElement(element.id, false)
-                      }
-                      className="mb-2 w-full truncate text-left text-sm"
-                    >
-                                            {element.isCanvasBackground
-                        ? "Sfondo canvas"
-                        : element.text || element.type}
-                    </button>
-
-                    <div className="grid grid-cols-6 gap-1">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          toggleElementVisibility(element.id)
-                        }
-                        className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
-                        title="Mostra o nascondi"
-                      >
-                        {element.visible === false ? "○" : "●"}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          toggleElementLock(element.id)
-                        }
-                        className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
-                        title="Blocca o sblocca"
-                      >
-                        {element.locked ? "🔒" : "🔓"}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          moveLayer(element.id, "up")
-                        }
-                        className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
-                        title="Porta avanti"
-                      >
-                        ↑
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          moveLayer(element.id, "down")
-                        }
-                        className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
-                        title="Porta indietro"
-                      >
-                        ↓
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          moveLayer(element.id, "front")
-                        }
-                        className="rounded bg-blue-800 p-1 text-xs hover:bg-blue-700"
-                        title="Porta in primo piano"
-                      >
-                        ⇈
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          moveLayer(element.id, "back")
-                        }
-                        className="rounded bg-blue-800 p-1 text-xs hover:bg-blue-700"
-                        title="Porta sullo sfondo"
-                      >
-                        ⇊
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </aside>
+          <ComponentsLayersPanel
+            elements={elements}
+            selectedIds={selectedIds}
+            onSelectElement={selectElement}
+            onToggleVisibility={toggleElementVisibility}
+            onToggleLock={toggleElementLock}
+            onMoveLayer={moveLayer}
+          />
 
           <section className="overflow-auto bg-slate-900 p-8">
             <div
