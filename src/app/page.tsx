@@ -54,6 +54,12 @@ type CanvasElement = {
   borderColor?: string;
   rotation?: number;
   shadow?: "none" | "small" | "medium" | "large";
+  fontFamily?: string;
+  fontWeight?: number;
+  fontStyle?: "normal" | "italic";
+  textDecoration?: "none" | "underline";
+  letterSpacing?: number;
+  lineHeight?: number;
 };
 
 const palette: Array<{
@@ -178,12 +184,23 @@ function CanvasItem({
     ? "outline outline-2 outline-offset-4 outline-blue-500"
     : "outline-none";
 
+  const typographyStyle = {
+    fontFamily:
+      element.fontFamily ??
+      "Arial, Helvetica, sans-serif",
+    fontWeight: element.fontWeight ?? 400,
+    fontStyle: element.fontStyle ?? "normal",
+    textDecoration: element.textDecoration ?? "none",
+    letterSpacing: element.letterSpacing ?? 0,
+    lineHeight: element.lineHeight ?? 1.2,
+  };
+
   if (element.type === "heading") {
     return (
       <h1
         onClick={(event) => onSelect(event.shiftKey || event.ctrlKey || event.metaKey)}
         className={`h-full w-full cursor-pointer font-bold ${commonClass}`}
-        style={{ color: element.color, fontSize: element.fontSize }}
+        style={{ color: element.color, fontSize: element.fontSize, ...typographyStyle }}
       >
         {element.text}
       </h1>
@@ -195,7 +212,7 @@ function CanvasItem({
       <p
         onClick={(event) => onSelect(event.shiftKey || event.ctrlKey || event.metaKey)}
         className={`h-full w-full cursor-pointer ${commonClass}`}
-        style={{ color: element.color, fontSize: element.fontSize }}
+        style={{ color: element.color, fontSize: element.fontSize, ...typographyStyle }}
       >
         {element.text}
       </p>
@@ -212,6 +229,7 @@ function CanvasItem({
           color: element.color,
           background: element.background,
           fontSize: element.fontSize,
+          ...typographyStyle,
         }}
       >
         {element.text}
@@ -230,6 +248,7 @@ function CanvasItem({
           color: element.color,
           background: element.background,
           fontSize: element.fontSize,
+          ...typographyStyle,
         }}
       />
     );
@@ -331,7 +350,7 @@ function generateCode(elements: CanvasElement[]) {
               : "none";
 
       const appearanceStyle =
-        `border: "${element.borderWidth ?? 0}px solid ${element.borderColor ?? "#0f172a"}", borderRadius: ${element.borderRadius ?? 0}, transform: "rotate(${element.rotation ?? 0}deg)", boxShadow: "${shadowValue}"`;
+        `border: "${element.borderWidth ?? 0}px solid ${element.borderColor ?? "#0f172a"}", borderRadius: ${element.borderRadius ?? 0}, transform: "rotate(${element.rotation ?? 0}deg)", boxShadow: "${shadowValue}", fontFamily: ${JSON.stringify(element.fontFamily ?? "Arial, Helvetica, sans-serif")}, fontWeight: ${element.fontWeight ?? 400}, fontStyle: "${element.fontStyle ?? "normal"}", textDecoration: "${element.textDecoration ?? "none"}", letterSpacing: ${element.letterSpacing ?? 0}, lineHeight: ${element.lineHeight ?? 1.2}`;
 
       switch (element.type) {
         case "heading":
@@ -1721,6 +1740,158 @@ export default function Home() {
                   </div>
                 )}
 
+                {selected.type !== "image" && (
+                  <div className="space-y-4 rounded-xl border border-amber-700 bg-amber-950/20 p-4">
+                    <h3 className="font-semibold text-white">
+                      Tipografia
+                    </h3>
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        Carattere
+                      </span>
+                      <select
+                        value={
+                          selected.fontFamily ??
+                          "Arial, Helvetica, sans-serif"
+                        }
+                        onChange={(event) =>
+                          updateSelected({
+                            fontFamily: event.target.value,
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                      >
+                        <option value="Arial, Helvetica, sans-serif">
+                          Arial
+                        </option>
+                        <option value="Verdana, Geneva, sans-serif">
+                          Verdana
+                        </option>
+                        <option value="Georgia, serif">
+                          Georgia
+                        </option>
+                        <option value="'Times New Roman', serif">
+                          Times New Roman
+                        </option>
+                        <option value="'Courier New', monospace">
+                          Courier New
+                        </option>
+                        <option value="system-ui, sans-serif">
+                          Sistema
+                        </option>
+                      </select>
+                    </label>
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        Peso
+                      </span>
+                      <select
+                        value={selected.fontWeight ?? 400}
+                        onChange={(event) =>
+                          updateSelected({
+                            fontWeight: Number(
+                              event.target.value,
+                            ),
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                      >
+                        <option value="300">Leggero</option>
+                        <option value="400">Normale</option>
+                        <option value="500">Medio</option>
+                        <option value="600">Semibold</option>
+                        <option value="700">Grassetto</option>
+                        <option value="800">Extra bold</option>
+                        <option value="900">Nero</option>
+                      </select>
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateSelected({
+                            fontStyle:
+                              selected.fontStyle === "italic"
+                                ? "normal"
+                                : "italic",
+                          })
+                        }
+                        className={`rounded-lg px-3 py-2 text-sm italic ${
+                          selected.fontStyle === "italic"
+                            ? "bg-amber-600"
+                            : "bg-slate-700"
+                        }`}
+                      >
+                        Corsivo
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateSelected({
+                            textDecoration:
+                              selected.textDecoration === "underline"
+                                ? "none"
+                                : "underline",
+                          })
+                        }
+                        className={`rounded-lg px-3 py-2 text-sm underline ${
+                          selected.textDecoration === "underline"
+                            ? "bg-amber-600"
+                            : "bg-slate-700"
+                        }`}
+                      >
+                        Sottolineato
+                      </button>
+                    </div>
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        Spaziatura: {selected.letterSpacing ?? 0}px
+                      </span>
+                      <input
+                        type="range"
+                        min="-2"
+                        max="12"
+                        step="0.5"
+                        value={selected.letterSpacing ?? 0}
+                        onChange={(event) =>
+                          updateSelected({
+                            letterSpacing: Number(
+                              event.target.value,
+                            ),
+                          })
+                        }
+                        className="w-full"
+                      />
+                    </label>
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        Altezza linea: {selected.lineHeight ?? 1.2}
+                      </span>
+                      <input
+                        type="range"
+                        min="0.8"
+                        max="3"
+                        step="0.1"
+                        value={selected.lineHeight ?? 1.2}
+                        onChange={(event) =>
+                          updateSelected({
+                            lineHeight: Number(
+                              event.target.value,
+                            ),
+                          })
+                        }
+                        className="w-full"
+                      />
+                    </label>
+                  </div>
+                )}
+
                 <div className="space-y-4 rounded-xl border border-emerald-700 bg-emerald-950/20 p-4">
                   <h3 className="font-semibold text-white">
                     Aspetto
@@ -2342,6 +2513,7 @@ export default function Home() {
     </DndContext>
   );
 }
+
 
 
 
