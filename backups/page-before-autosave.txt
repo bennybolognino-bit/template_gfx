@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -239,7 +239,6 @@ export default function Home() {
   const [activeType, setActiveType] = useState<ElementType | null>(null);
   const [showCode, setShowCode] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [projectLoaded, setProjectLoaded] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -253,41 +252,6 @@ export default function Home() {
 
   const selected = elements.find((element) => element.id === selectedId);
   const generatedCode = useMemo(() => generateCode(elements), [elements]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const savedProject = window.localStorage.getItem(
-        "template-gfx-project",
-      );
-
-      if (savedProject) {
-        try {
-          const parsedProject = JSON.parse(
-            savedProject,
-          ) as CanvasElement[];
-
-          if (Array.isArray(parsedProject)) {
-            setElements(parsedProject);
-          }
-        } catch {
-          window.localStorage.removeItem("template-gfx-project");
-        }
-      }
-
-      setProjectLoaded(true);
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    if (!projectLoaded) return;
-
-    window.localStorage.setItem(
-      "template-gfx-project",
-      JSON.stringify(elements),
-    );
-  }, [elements, projectLoaded]);
 
   function handleDragStart(event: DragStartEvent) {
     const id = String(event.active.id);
@@ -330,56 +294,6 @@ export default function Home() {
       current.filter((element) => element.id !== selectedId),
     );
     setSelectedId(null);
-  }
-
-  function duplicateSelected() {
-    if (!selected) return;
-
-    const duplicate = {
-      ...selected,
-      id: nanoid(),
-    };
-
-    setElements((current) => {
-      const selectedIndex = current.findIndex(
-        (element) => element.id === selected.id,
-      );
-
-      const next = [...current];
-      next.splice(selectedIndex + 1, 0, duplicate);
-      return next;
-    });
-
-    setSelectedId(duplicate.id);
-  }
-
-  function moveSelected(direction: "up" | "down") {
-    if (!selectedId) return;
-
-    setElements((current) => {
-      const currentIndex = current.findIndex(
-        (element) => element.id === selectedId,
-      );
-
-      const targetIndex =
-        direction === "up" ? currentIndex - 1 : currentIndex + 1;
-
-      if (
-        currentIndex < 0 ||
-        targetIndex < 0 ||
-        targetIndex >= current.length
-      ) {
-        return current;
-      }
-
-      const next = [...current];
-      [next[currentIndex], next[targetIndex]] = [
-        next[targetIndex],
-        next[currentIndex],
-      ];
-
-      return next;
-    });
   }
 
   async function copyCode() {
@@ -542,32 +456,6 @@ export default function Home() {
                   />
                 </label>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => moveSelected("up")}
-                    className="rounded-lg bg-slate-700 px-2 py-2 text-sm hover:bg-slate-600"
-                  >
-                    ↑ Su
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => moveSelected("down")}
-                    className="rounded-lg bg-slate-700 px-2 py-2 text-sm hover:bg-slate-600"
-                  >
-                    ↓ Giù
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={duplicateSelected}
-                    className="rounded-lg bg-blue-700 px-2 py-2 text-sm hover:bg-blue-600"
-                  >
-                    Duplica
-                  </button>
-                </div>
-
                 <button
                   onClick={deleteSelected}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 font-semibold hover:bg-red-500"
@@ -632,6 +520,4 @@ export default function Home() {
     </DndContext>
   );
 }
-
-
 
