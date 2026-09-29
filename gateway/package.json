@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "template-gfx-plugin-gateway",
   "version": "0.1.0",
   "private": true,
@@ -9,6 +9,7 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
+    "obs-websocket-js": "^5.0.8",
     "ws": "^8.18.0",
     "zod": "^4.0.0"
   },

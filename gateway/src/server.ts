@@ -11,6 +11,7 @@ import {
 } from "./connections.js";
 import { corePlugin } from "./plugins/core.js";
 import { vmixPlugin } from "./plugins/vmix.js";
+import { obsPlugin } from "./plugins/obs.js";
 import type {
   GatewayContext,
   PluginDefinition,
@@ -21,6 +22,7 @@ const PORT = Number(process.env.PORT ?? 3210);
 const plugins = new Map<string, PluginDefinition>([
   [corePlugin.id, corePlugin],
   [vmixPlugin.id, vmixPlugin],
+  [obsPlugin.id, obsPlugin],
 ]);
 
 const variables = new Map<string, unknown>();
@@ -373,5 +375,6 @@ server.listen(PORT, () => {
     `WebSocket Gateway: ws://localhost:${PORT}`,
   );
 });
+
 
 
