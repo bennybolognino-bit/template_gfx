@@ -1,18 +1,10 @@
-import type {
+﻿import type {
   GatewayContext,
   PluginDefinition,
 } from "../types.js";
 
 let configuredBaseUrl =
   process.env.VMIX_URL ?? "http://127.0.0.1:8088";
-
-const targetUrlField = {
-  id: "baseUrl",
-  label: "Indirizzo vMix destinatario",
-  type: "text" as const,
-  required: true,
-  defaultValue: "http://127.0.0.1:8088",
-};
 
 function normalizeBaseUrl(value: unknown) {
   const url = new URL(
@@ -677,6 +669,7 @@ export const vmixPlugin: PluginDefinition = {
     }
   },
 };
+
 
 
 

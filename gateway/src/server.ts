@@ -159,7 +159,12 @@ const server = http.createServer(
       url.pathname === "/api/plugins"
     ) {
       const manifests = [...plugins.values()].map(
-        ({ execute, ...manifest }) => manifest,
+        (plugin) =>
+          Object.fromEntries(
+            Object.entries(plugin).filter(
+              ([key]) => key !== "execute",
+            ),
+          ),
       );
 
       sendJson(response, 200, manifests);
@@ -442,6 +447,7 @@ server.listen(PORT, HOST, () => {
     `WebSocket Gateway: ws://localhost:${PORT}`,
   );
 });
+
 
 
 
