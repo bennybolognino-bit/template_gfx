@@ -60,6 +60,7 @@ type ElementAction = {
   payload?: string;
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   delayMs?: number;
+  parallelWithNext?: boolean;
   pluginId?: string;
   connectionId?: string;
   pluginActionId?: string;
@@ -91,6 +92,14 @@ type PluginActionManifest = {
   fields: PluginField[];
 };
 
+type PluginPresetManifest = {
+  id: string;
+  name: string;
+  category: string;
+  actionId: string;
+  options: Record<string, unknown>;
+};
+
 type PluginVariableManifest = {
   id: string;
   name: string;
@@ -105,6 +114,7 @@ type PluginManifest = {
   configuration: PluginField[];
   actions: PluginActionManifest[];
   variables: PluginVariableManifest[];
+  presets: PluginPresetManifest[];
 };
 
 type PluginConnection = {
@@ -728,6 +738,7 @@ type GeneratedAction = {
   payload?: string;
   method?: string;
   delayMs?: number;
+  parallelWithNext?: boolean;
   pluginId?: string;
   connectionId?: string;
   pluginActionId?: string;
@@ -735,7 +746,39 @@ type GeneratedAction = {
 };
 
 async function runActions(actions: GeneratedAction[]) {
-  for (const action of actions) {
+  for (
+    let actionIndex = 0;
+    actionIndex < actions.length;
+    actionIndex += 1
+  ) {
+    let action = actions[actionIndex];
+
+    if (action.parallelWithNext) {
+      const group = [action];
+      let groupIndex = actionIndex;
+
+      while (
+        groupIndex < actions.length - 1 &&
+        actions[groupIndex].parallelWithNext
+      ) {
+        groupIndex += 1;
+        group.push(actions[groupIndex]);
+      }
+
+      await Promise.all(
+        group.map((groupAction) =>
+          runActions([
+            {
+              ...groupAction,
+              parallelWithNext: false,
+            },
+          ]),
+        ),
+      );
+
+      actionIndex = groupIndex;
+      continue;
+    }
     if ((action.delayMs ?? 0) > 0) {
       await new Promise((resolve) =>
         window.setTimeout(resolve, action.delayMs),
@@ -2330,12 +2373,68 @@ export default function Home() {
       return;
     }
 
-    for (const action of actions) {
+    for (
+      let actionIndex = 0;
+      actionIndex < actions.length;
+      actionIndex += 1
+    ) {
+      const action = actions[actionIndex];
+
+      if (action.parallelWithNext) {
+        const group = [action];
+        let groupIndex = actionIndex;
+
+        while (
+          groupIndex < actions.length - 1 &&
+          actions[groupIndex].parallelWithNext
+        ) {
+          groupIndex += 1;
+          group.push(actions[groupIndex]);
+        }
+
+        const results = await Promise.all(
+          group.map((groupAction) =>
+            executePreviewAction(groupAction),
+          ),
+        );
+
+        actionIndex = groupIndex;
+
+        if (results.some((result) => !result)) {
+          break;
+        }
+
+        continue;
+      }
+
       const shouldContinue =
         await executePreviewAction(action);
 
       if (!shouldContinue) break;
     }
+  }
+
+  function applyPluginPreset(
+    actionId: string,
+    pluginId: string,
+    presetId: string,
+  ) {
+    const plugin = pluginCatalog.find(
+      (item) => item.id === pluginId,
+    );
+
+    const preset = plugin?.presets.find(
+      (item) => item.id === presetId,
+    );
+
+    if (!preset) return;
+
+    updateButtonAction(actionId, {
+      pluginActionId: preset.actionId,
+      pluginOptions: {
+        ...preset.options,
+      },
+    });
   }
 
   function updatePluginOption(
@@ -3378,6 +3477,54 @@ export default function Home() {
                                 </button>
                               </div>
 
+                              {(
+                                pluginCatalog.find(
+                                  (plugin) =>
+                                    plugin.id ===
+                                    action.pluginId,
+                                )?.presets.length ?? 0
+                              ) > 0 && (
+                                <label className="block text-sm">
+                                  <span className="mb-1 block text-slate-400">
+                                    Preset
+                                  </span>
+
+                                  <select
+                                    defaultValue=""
+                                    onChange={(event) => {
+                                      applyPluginPreset(
+                                        action.id,
+                                        action.pluginId ?? "",
+                                        event.target.value,
+                                      );
+
+                                      event.target.value = "";
+                                    }}
+                                    className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2"
+                                  >
+                                    <option value="">
+                                      Carica preset
+                                    </option>
+
+                                    {pluginCatalog
+                                      .find(
+                                        (plugin) =>
+                                          plugin.id ===
+                                          action.pluginId,
+                                      )
+                                      ?.presets.map((preset) => (
+                                        <option
+                                          key={preset.id}
+                                          value={preset.id}
+                                        >
+                                          {preset.category} —{" "}
+                                          {preset.name}
+                                        </option>
+                                      ))}
+                                  </select>
+                                </label>
+                              )}
+
                               <label className="block text-sm">
                                 <span className="mb-1 block text-slate-400">
                                   Comando
@@ -3681,6 +3828,27 @@ export default function Home() {
                               }
                               className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2"
                             />
+                          </label>
+
+                          <label className="flex items-center gap-3 rounded-lg border border-cyan-800 bg-cyan-950/30 p-3 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={
+                                action.parallelWithNext ??
+                                false
+                              }
+                              onChange={(event) =>
+                                updateButtonAction(action.id, {
+                                  parallelWithNext:
+                                    event.target.checked,
+                                })
+                              }
+                              className="h-4 w-4"
+                            />
+
+                            <span>
+                              Esegui insieme all’azione successiva
+                            </span>
                           </label>
                         </div>
                       ),
@@ -5060,6 +5228,7 @@ export default function Home() {
     </DndContext>
   );
 }
+
 
 
 
