@@ -49,6 +49,8 @@ import { MultiSelectionTools } from "@/editor/components/MultiSelectionTools";
 import { ComponentsLayersPanel } from "@/editor/components/ComponentsLayersPanel";
 import { EditorHeader } from "@/editor/components/EditorHeader";
 import { EditorCanvas } from "@/editor/components/EditorCanvas";
+import { FeedbackToggleCard } from "@/editor/components/FeedbackToggleCard";
+import { ShapeProperties } from "@/editor/components/ShapeProperties";
 import { generateCode } from "@/editor/generator";
 export default function Home() {
   const [elements, setElements] = useState<CanvasElement[]>([]);
@@ -1733,105 +1735,20 @@ export default function Home() {
 
             {selected && (
               <div className="space-y-5">
-                <div className="flex items-center justify-between rounded-xl border border-green-700 bg-green-950/30 p-3">
-                  <div>
-                    <p className="font-semibold text-white">
-                      Feedback plugin
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      Configura colori e testo dinamici
-                    </p>
-                  </div>
+                <FeedbackToggleCard
+                  enabled={selected.feedback?.enabled ?? false}
+                  onToggle={() =>
+                    updateElementFeedback({
+                      enabled:
+                        !(selected.feedback?.enabled ?? false),
+                    })
+                  }
+                />
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateElementFeedback({
-                        enabled:
-                          !(selected.feedback?.enabled ?? false),
-                      })
-                    }
-                    className={`rounded-lg px-3 py-2 text-sm font-semibold ${
-                      selected.feedback?.enabled
-                        ? "bg-green-600"
-                        : "bg-slate-700"
-                    }`}
-                  >
-                    {selected.feedback?.enabled
-                      ? "Attivo"
-                      : "Attiva"}
-                  </button>
-                </div>
-                {selected.type === "shape" && (
-                  <div className="space-y-4 rounded-xl border border-cyan-700 bg-cyan-950/20 p-4">
-                    <h3 className="font-semibold text-white">
-                      Proprietà forma
-                    </h3>
-
-                    <div className="grid grid-cols-3 gap-2">
-                      {(
-                        [
-                          ["rectangle", "Rettangolo"],
-                          ["ellipse", "Ellisse"],
-                          ["line", "Linea"],
-                        ] as const
-                      ).map(([shapeType, label]) => (
-                        <button
-                          key={shapeType}
-                          type="button"
-                          onClick={() =>
-                            updateSelected({ shapeType })
-                          }
-                          className={`rounded-lg px-2 py-2 text-xs ${
-                            selected.shapeType === shapeType
-                              ? "bg-cyan-600"
-                              : "bg-slate-700 hover:bg-slate-600"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-
-                    <label className="flex items-center justify-between text-sm">
-                      <span className="text-slate-400">
-                        Colore riempimento
-                      </span>
-                      <input
-                        type="color"
-                        value={selected.background}
-                        onChange={(event) =>
-                          updateSelected({
-                            background: event.target.value,
-                          })
-                        }
-                        className="h-10 w-16"
-                      />
-                    </label>
-
-                    {selected.shapeType === "line" && (
-                      <label className="block text-sm">
-                        <span className="mb-1 block text-slate-400">
-                          Spessore: {selected.shapeThickness ?? 4}px
-                        </span>
-                        <input
-                          type="range"
-                          min="1"
-                          max="50"
-                          value={selected.shapeThickness ?? 4}
-                          onChange={(event) =>
-                            updateSelected({
-                              shapeThickness: Number(
-                                event.target.value,
-                              ),
-                            })
-                          }
-                          className="w-full"
-                        />
-                      </label>
-                    )}
-                  </div>
-                )}
+                <ShapeProperties
+                  element={selected}
+                  onUpdate={updateSelected}
+                />
 
                 {selected.type === "image" && (
                   <div className="space-y-4 rounded-xl border border-purple-700 bg-purple-950/30 p-4">
