@@ -142,7 +142,48 @@ type ElementFeedback = {
   visibility: "unchanged" | "show" | "hide";
 };
 
-const PLUGIN_GATEWAY_URL = "http://localhost:3210";
+const PLUGIN_GATEWAY_URL =
+  process.env.NEXT_PUBLIC_PLUGIN_GATEWAY_URL ??
+  "http://localhost:3210";
+
+const PLUGIN_GATEWAY_WS_URL =
+  process.env.NEXT_PUBLIC_PLUGIN_GATEWAY_WS_URL ??
+  "ws://localhost:3210";
+
+const PLUGIN_GATEWAY_TOKEN =
+  process.env.NEXT_PUBLIC_PLUGIN_GATEWAY_TOKEN ?? "";
+
+function gatewayFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+) {
+  const headers = new Headers(init.headers);
+
+  if (PLUGIN_GATEWAY_TOKEN) {
+    headers.set(
+      "Authorization",
+      `Bearer ${PLUGIN_GATEWAY_TOKEN}`,
+    );
+  }
+
+  return fetch(input, {
+    ...init,
+    headers,
+  });
+}
+
+function createGatewaySocket() {
+  const url = new URL(PLUGIN_GATEWAY_WS_URL);
+
+  if (PLUGIN_GATEWAY_TOKEN) {
+    url.searchParams.set(
+      "token",
+      PLUGIN_GATEWAY_TOKEN,
+    );
+  }
+
+  return new WebSocket(url);
+}
 
 const actionOptions: Array<{
   type: ActionType;
@@ -792,11 +833,17 @@ async function runActions(actions: GeneratedAction[]) {
 
     if (action.type === "plugin") {
       const response = await fetch(
-        "http://localhost:3210/api/execute",
+        GATEWAY_URL + "/api/execute",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...(GATEWAY_TOKEN
+              ? {
+                  Authorization:
+                    "Bearer " + GATEWAY_TOKEN,
+                }
+              : {}),
           },
           body: JSON.stringify({
             pluginId: action.pluginId,
@@ -901,7 +948,16 @@ async function runActions(actions: GeneratedAction[]) {
 
 export default function GeneratedPage() {
   useEffect(() => {
-    const socket = new WebSocket("ws://localhost:3210");
+    const socketUrl = new URL(GATEWAY_WS_URL);
+
+    if (GATEWAY_TOKEN) {
+      socketUrl.searchParams.set(
+        "token",
+        GATEWAY_TOKEN,
+      );
+    }
+
+    const socket = new WebSocket(socketUrl);
 
     socket.onmessage = (message) => {
       try {
@@ -999,7 +1055,7 @@ export default function Home() {
 
     async function loadPlugins() {
       try {
-        const response = await fetch(
+        const response = await gatewayFetch(
           `${PLUGIN_GATEWAY_URL}/api/plugins`,
         );
 
@@ -1039,7 +1095,7 @@ export default function Home() {
 
     async function loadConnections() {
       try {
-        const response = await fetch(
+        const response = await gatewayFetch(
           `${PLUGIN_GATEWAY_URL}/api/connections`,
         );
 
@@ -1070,7 +1126,7 @@ export default function Home() {
 
     async function loadVariables() {
       try {
-        const response = await fetch(
+        const response = await gatewayFetch(
           `${PLUGIN_GATEWAY_URL}/api/variables`,
         );
 
@@ -1090,7 +1146,7 @@ export default function Home() {
     function connect() {
       if (!active) return;
 
-      socket = new WebSocket("ws://localhost:3210");
+      socket = createGatewaySocket();
 
       socket.onopen = () => {
         if (active) {
@@ -1920,7 +1976,7 @@ export default function Home() {
   }
 
   async function reloadPluginConnections() {
-    const response = await fetch(
+    const response = await gatewayFetch(
       `${PLUGIN_GATEWAY_URL}/api/connections`,
     );
 
@@ -1984,7 +2040,7 @@ export default function Home() {
       return;
     }
 
-    const response = await fetch(
+    const response = await gatewayFetch(
       `${PLUGIN_GATEWAY_URL}/api/connections`,
       {
         method: "POST",
@@ -2027,7 +2083,7 @@ export default function Home() {
 
     if (!confirmed) return;
 
-    const response = await fetch(
+    const response = await gatewayFetch(
       `${PLUGIN_GATEWAY_URL}/api/connections/${encodeURIComponent(connection.id)}`,
       { method: "DELETE" },
     );
@@ -2172,7 +2228,7 @@ export default function Home() {
         }
 
         try {
-          const response = await fetch(
+          const response = await gatewayFetch(
             `${PLUGIN_GATEWAY_URL}/api/execute`,
             {
               method: "POST",
@@ -5228,6 +5284,8 @@ export default function Home() {
     </DndContext>
   );
 }
+
+
 
 
 

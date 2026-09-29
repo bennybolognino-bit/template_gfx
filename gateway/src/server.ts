@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 import http from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
@@ -21,6 +23,29 @@ import type {
 } from "./types.js";
 
 const PORT = Number(process.env.PORT ?? 3210);
+const HOST = process.env.GATEWAY_HOST ?? "127.0.0.1";
+const GATEWAY_TOKEN =
+  process.env.GATEWAY_TOKEN ?? "";
+const ALLOWED_ORIGIN =
+  process.env.GATEWAY_ALLOWED_ORIGIN ??
+  "http://localhost:3000";
+
+function isAuthorized(
+  authorization?: string,
+  queryToken?: string | null,
+) {
+  if (!GATEWAY_TOKEN) return true;
+
+  const bearerToken =
+    authorization?.startsWith("Bearer ")
+      ? authorization.slice("Bearer ".length)
+      : "";
+
+  return (
+    bearerToken === GATEWAY_TOKEN ||
+    queryToken === GATEWAY_TOKEN
+  );
+}
 
 const plugins = new Map<string, PluginDefinition>([
   [corePlugin.id, corePlugin],
@@ -61,7 +86,7 @@ function sendJson(
 ) {
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
   });
@@ -102,6 +127,20 @@ const server = http.createServer(
       request.url ?? "/",
       `http://${request.headers.host ?? "localhost"}`,
     );
+
+    if (
+      url.pathname.startsWith("/api/") &&
+      !isAuthorized(
+        request.headers.authorization,
+        url.searchParams.get("token"),
+      )
+    ) {
+      sendJson(response, 401, {
+        ok: false,
+        error: "Autenticazione richiesta",
+      });
+      return;
+    }
 
     if (
       request.method === "GET" &&
@@ -341,6 +380,28 @@ const server = http.createServer(
 
 const webSocketServer = new WebSocketServer({
   server,
+
+  verifyClient(info, callback) {
+    const requestUrl = new URL(
+      info.req.url ?? "/",
+      "http://localhost",
+    );
+
+    const originAllowed =
+      !info.origin ||
+      info.origin === ALLOWED_ORIGIN;
+
+    const authorized = isAuthorized(
+      info.req.headers.authorization,
+      requestUrl.searchParams.get("token"),
+    );
+
+    callback(
+      originAllowed && authorized,
+      authorized ? 403 : 401,
+      authorized ? "Origin not allowed" : "Unauthorized",
+    );
+  },
 });
 
 function broadcast(payload: unknown) {
@@ -373,14 +434,15 @@ for (const plugin of plugins.values()) {
 
 await loadConnections();
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log(
-    `Template GFX Plugin Gateway: http://localhost:${PORT}`,
+    `Template GFX Plugin Gateway: http://${HOST}:${PORT}`,
   );
   console.log(
     `WebSocket Gateway: ws://localhost:${PORT}`,
   );
 });
+
 
 
 

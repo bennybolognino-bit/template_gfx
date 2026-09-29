@@ -46,3 +46,6 @@ gateway/node_modules/
 gateway/dist/
 
 gateway/data/
+
+.env.local
+gateway/.env

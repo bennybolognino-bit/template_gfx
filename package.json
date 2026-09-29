@@ -5,12 +5,13 @@
   "scripts": {
     "dev": "concurrently --kill-others --names \"APP,GATEWAY\" --prefix-colors \"cyan,magenta\" \"npm run dev:app\" \"npm run dev:gateway\"",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0",
     "lint": "eslint",
     "dev:app": "next dev",
     "dev:gateway": "npm --prefix gateway run dev",
     "build:all": "npm run build && npm --prefix gateway run build",
-    "start:all": "concurrently --kill-others --names \"APP,GATEWAY\" \"npm run start\" \"npm --prefix gateway run start\""
+    "start:all": "concurrently --kill-others --names \"APP,GATEWAY\" \"npm run start\" \"npm --prefix gateway run start\"",
+    "production": "npm run build:all && npm run start:all"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
