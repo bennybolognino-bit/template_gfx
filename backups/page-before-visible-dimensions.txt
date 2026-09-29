@@ -1154,105 +1154,6 @@ export default function Home() {
 
             {selected && (
               <div className="space-y-5">
-                <div className="rounded-xl border border-blue-700 bg-blue-950/30 p-4">
-                  <h3 className="mb-3 font-semibold text-white">
-                    Dimensioni elemento
-                  </h3>
-
-                  {selected.positionMode === "absolute" ? (
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="text-sm">
-                        <span className="mb-1 block text-slate-400">
-                          Larghezza px
-                        </span>
-                        <input
-                          type="number"
-                          min="20"
-                          value={selected.widthPx ?? 320}
-                          onChange={(event) =>
-                            updateSelected({
-                              widthPx: Math.max(
-                                20,
-                                Number(event.target.value),
-                              ),
-                            })
-                          }
-                          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
-                        />
-                      </label>
-
-                      <label className="text-sm">
-                        <span className="mb-1 block text-slate-400">
-                          Altezza px
-                        </span>
-                        <input
-                          type="number"
-                          min="20"
-                          value={selected.heightPx ?? 120}
-                          onChange={(event) =>
-                            updateSelected({
-                              heightPx: Math.max(
-                                20,
-                                Number(event.target.value),
-                              ),
-                            })
-                          }
-                          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
-                        />
-                      </label>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="text-sm">
-                        <span className="mb-1 block text-slate-400">
-                          Larghezza colonne
-                        </span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="12"
-                          value={selected.gridColumnSpan ?? 12}
-                          onChange={(event) =>
-                            updateSelected({
-                              gridColumnSpan: Math.max(
-                                1,
-                                Math.min(
-                                  12,
-                                  Number(event.target.value),
-                                ),
-                              ),
-                            })
-                          }
-                          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
-                        />
-                      </label>
-
-                      <label className="text-sm">
-                        <span className="mb-1 block text-slate-400">
-                          Altezza righe
-                        </span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="20"
-                          value={selected.gridRowSpan ?? 3}
-                          onChange={(event) =>
-                            updateSelected({
-                              gridRowSpan: Math.max(
-                                1,
-                                Math.min(
-                                  20,
-                                  Number(event.target.value),
-                                ),
-                              ),
-                            })
-                          }
-                          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
-                        />
-                      </label>
-                    </div>
-                  )}
-                </div>
                 <label className="block">
                   <span className="mb-2 block text-sm text-slate-300">
                     Contenuto
@@ -1650,7 +1551,6 @@ export default function Home() {
     </DndContext>
   );
 }
-
 
 
 
