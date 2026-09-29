@@ -212,19 +212,19 @@ function generateCode(elements: CanvasElement[]) {
 
       switch (element.type) {
         case "heading":
-          return `      <h1 style={{ color: "${element.color}", fontSize: ${element.fontSize}, gridColumn: "span ${Math.max(1, Math.round((element.width ?? 100) / (100 / 12)))}", textAlign: "${element.alignment ?? "left"}", fontWeight: 700 }}>${element.text}</h1>`;
+          return `      <h1 style={{ color: "${element.color}", fontSize: ${element.fontSize}, width: "${element.width ?? 100}%", textAlign: "${element.alignment ?? "left"}", fontWeight: 700 }}>${element.text}</h1>`;
 
         case "text":
-          return `      <p style={{ color: "${element.color}", fontSize: ${element.fontSize}, gridColumn: "span ${Math.max(1, Math.round((element.width ?? 100) / (100 / 12)))}", textAlign: "${element.alignment ?? "left"}" }}>${element.text}</p>`;
+          return `      <p style={{ color: "${element.color}", fontSize: ${element.fontSize}, width: "${element.width ?? 100}%", textAlign: "${element.alignment ?? "left"}" }}>${element.text}</p>`;
 
         case "button":
-          return `      <button type="button" style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, gridColumn: "span ${Math.max(1, Math.round((element.width ?? 100) / (100 / 12)))}", textAlign: "${element.alignment ?? "left"}", padding: "12px 20px", borderRadius: 8 }}>${element.text}</button>`;
+          return `      <button type="button" style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, width: "${element.width ?? 100}%", textAlign: "${element.alignment ?? "left"}", padding: "12px 20px", borderRadius: 8 }}>${element.text}</button>`;
 
         case "input":
-          return `      <input placeholder=${text} style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, gridColumn: "span ${Math.max(1, Math.round((element.width ?? 100) / (100 / 12)))}", textAlign: "${element.alignment ?? "left"}", padding: 12, border: "1px solid #cbd5e1", borderRadius: 8 }} />`;
+          return `      <input placeholder=${text} style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, width: "${element.width ?? 100}%", textAlign: "${element.alignment ?? "left"}", padding: 12, border: "1px solid #cbd5e1", borderRadius: 8 }} />`;
 
         case "container":
-          return `      <div style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, gridColumn: "span ${Math.max(1, Math.round((element.width ?? 100) / (100 / 12)))}", textAlign: "${element.alignment ?? "left"}", minHeight: 128, padding: 24, borderRadius: 12 }}>${element.text}</div>`;
+          return `      <div style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, width: "${element.width ?? 100}%", textAlign: "${element.alignment ?? "left"}", minHeight: 128, padding: 24, borderRadius: 12 }}>${element.text}</div>`;
       }
     })
     .join("\n");
@@ -233,9 +233,8 @@ function generateCode(elements: CanvasElement[]) {
   return (
     <main style={{
       minHeight: "100vh",
-      display: "grid",
-      gridTemplateColumns: "repeat(12, minmax(0, 1fr))",
-      alignContent: "start",
+      display: "flex",
+      flexDirection: "column",
       gap: 24,
       padding: 32,
       background: "#f8fafc"
@@ -518,12 +517,12 @@ export default function Home() {
                       : "390px",
                 maxWidth: "100%",
               }}
-              className={`mx-auto grid min-h-full grid-cols-12 content-start gap-6 rounded-2xl bg-white p-10 text-slate-900 shadow-2xl transition-all duration-300 ${
+              className={`mx-auto min-h-full space-y-6 rounded-2xl bg-white p-10 text-slate-900 shadow-2xl transition-all duration-300 ${
                 isOver ? "ring-4 ring-blue-500" : ""
               }`}
             >
               {elements.length === 0 && (
-                <div className="pointer-events-none col-span-12 flex min-h-[500px] items-center justify-center rounded-xl border-2 border-dashed border-slate-300 text-center text-slate-400">
+                <div className="pointer-events-none flex min-h-[500px] items-center justify-center rounded-xl border-2 border-dashed border-slate-300 text-center text-slate-400">
                   <div>
                     <p className="text-lg font-semibold">
                       Trascina qui un componente
@@ -561,11 +560,12 @@ export default function Home() {
                       : "opacity-100"
                   }`}
                   style={{
-                    gridColumn: `span ${Math.max(
-                      1,
-                      Math.round((element.width ?? 100) / (100 / 12)),
-                    )}`,
+                    width: `${element.width ?? 100}%`,
                     textAlign: element.alignment ?? "left",
+                    marginLeft:
+                      element.alignment === "left" ? 0 : "auto",
+                    marginRight:
+                      element.alignment === "right" ? 0 : "auto",
                   }}
                 >
                   <CanvasItem
@@ -786,7 +786,6 @@ export default function Home() {
     </DndContext>
   );
 }
-
 
 
 
