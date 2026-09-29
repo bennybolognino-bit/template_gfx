@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -288,8 +288,6 @@ export default function Home() {
   const [projectLoaded, setProjectLoaded] = useState(false);
   const [draggedCanvasId, setDraggedCanvasId] = useState<string | null>(null);
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
-  const [projectName, setProjectName] = useState("Nuovo progetto");
-  const importInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -306,14 +304,6 @@ export default function Home() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const savedProjectName = window.localStorage.getItem(
-        "template-gfx-project-name",
-      );
-
-      if (savedProjectName) {
-        setProjectName(savedProjectName);
-      }
-
       const savedProject = window.localStorage.getItem(
         "template-gfx-project",
       );
@@ -365,12 +355,7 @@ export default function Home() {
       "template-gfx-project",
       JSON.stringify(elements),
     );
-
-    window.localStorage.setItem(
-      "template-gfx-project-name",
-      projectName,
-    );
-  }, [elements, projectLoaded, projectName]);
+  }, [elements, projectLoaded]);
 
   function handleDragStart(event: DragStartEvent) {
     const id = String(event.active.id);
@@ -872,103 +857,6 @@ export default function Home() {
     });
   }
 
-  function createNewProject() {
-    const confirmed = window.confirm(
-      "Creare un nuovo progetto? Il progetto corrente è già salvato automaticamente nel browser.",
-    );
-
-    if (!confirmed) return;
-
-    setElements([]);
-    setSelectedId(null);
-    setSelectedIds([]);
-    setProjectName("Nuovo progetto");
-
-    historyRef.current = [[]];
-    historyIndexRef.current = 0;
-    historyInitializedRef.current = true;
-  }
-
-  function exportProject() {
-    const project = {
-      version: 1,
-      name: projectName,
-      exportedAt: new Date().toISOString(),
-      elements,
-    };
-
-    const blob = new Blob(
-      [JSON.stringify(project, null, 2)],
-      { type: "application/json;charset=utf-8" },
-    );
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    const safeName =
-      projectName
-        .trim()
-        .replace(/[^a-z0-9-_]+/gi, "-")
-        .toLowerCase() || "template-gfx";
-
-    link.href = url;
-    link.download = `${safeName}.template-gfx.json`;
-    link.click();
-
-    URL.revokeObjectURL(url);
-  }
-
-  async function importProject(
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = event.target.files?.[0];
-
-    if (!file) return;
-
-    try {
-      const text = await file.text();
-
-      const parsed = JSON.parse(text) as {
-        name?: string;
-        elements?: CanvasElement[];
-      };
-
-      if (!Array.isArray(parsed.elements)) {
-        throw new Error("Formato progetto non valido");
-      }
-
-      const importedElements = parsed.elements
-        .filter(
-          (element) =>
-            element &&
-            typeof element.type === "string" &&
-            element.type in defaults,
-        )
-        .map((element) => ({
-          ...defaults[element.type],
-          ...element,
-          id: element.id || nanoid(),
-        }));
-
-      setElements(importedElements);
-      setProjectName(parsed.name || "Progetto importato");
-      setSelectedId(null);
-      setSelectedIds([]);
-
-      historyRef.current = [
-        importedElements.map((element) => ({ ...element })),
-      ];
-      historyIndexRef.current = 0;
-      historyInitializedRef.current = true;
-    } catch {
-      window.alert(
-        "Impossibile importare il progetto: file non valido.",
-      );
-    } finally {
-      event.target.value = "";
-    }
-  }
-
   async function copyCode() {
     await navigator.clipboard.writeText(generatedCode);
     setCopied(true);
@@ -1002,49 +890,6 @@ export default function Home() {
           <div>
             <h1 className="text-xl font-bold">Template GFX</h1>
             <p className="text-xs text-slate-400">Visual application builder</p>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 p-1">
-            <input
-              value={projectName}
-              onChange={(event) =>
-                setProjectName(event.target.value)
-              }
-              className="w-36 rounded-lg bg-slate-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Nome progetto"
-            />
-
-            <button
-              type="button"
-              onClick={createNewProject}
-              className="rounded-lg px-3 py-2 text-sm hover:bg-slate-700"
-            >
-              Nuovo
-            </button>
-
-            <button
-              type="button"
-              onClick={() => importInputRef.current?.click()}
-              className="rounded-lg px-3 py-2 text-sm hover:bg-slate-700"
-            >
-              Importa
-            </button>
-
-            <button
-              type="button"
-              onClick={exportProject}
-              className="rounded-lg px-3 py-2 text-sm hover:bg-slate-700"
-            >
-              Esporta
-            </button>
-
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".json,.template-gfx.json"
-              onChange={importProject}
-              className="hidden"
-            />
           </div>
 
           <div className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1">
@@ -1805,8 +1650,6 @@ export default function Home() {
     </DndContext>
   );
 }
-
-
 
 
 
