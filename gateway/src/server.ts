@@ -2,6 +2,13 @@ import http from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 
+import {
+  deleteConnection,
+  getConnection,
+  listConnections,
+  loadConnections,
+  saveConnection,
+} from "./connections.js";
 import { corePlugin } from "./plugins/core.js";
 import { vmixPlugin } from "./plugins/vmix.js";
 import type {
@@ -18,9 +25,17 @@ const plugins = new Map<string, PluginDefinition>([
 
 const variables = new Map<string, unknown>();
 
+const connectionSchema = z.object({
+  id: z.string().optional(),
+  pluginId: z.string().min(1),
+  name: z.string().min(1),
+  config: z.record(z.string(), z.unknown()).default({}),
+});
+
 const executeSchema = z.object({
   pluginId: z.string().min(1),
   actionId: z.string().min(1),
+  connectionId: z.string().optional(),
   options: z.record(z.string(), z.unknown()).default({}),
 });
 
@@ -40,7 +55,7 @@ function sendJson(
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
   });
 
   response.end(JSON.stringify(payload));
@@ -117,6 +132,91 @@ const server = http.createServer(
     }
 
     if (
+      request.method === "GET" &&
+      url.pathname === "/api/connections"
+    ) {
+      const pluginId =
+        url.searchParams.get("pluginId") ?? undefined;
+
+      sendJson(
+        response,
+        200,
+        listConnections(pluginId),
+      );
+      return;
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/connections"
+    ) {
+      try {
+        const body = await readJson(request);
+        const input = connectionSchema.parse(body);
+
+        if (!plugins.has(input.pluginId)) {
+          sendJson(response, 404, {
+            ok: false,
+            error: "Plugin non trovato",
+          });
+          return;
+        }
+
+        const connection = await saveConnection(input);
+
+        broadcast({
+          type: "connections-updated",
+          connection,
+        });
+
+        sendJson(response, 200, {
+          ok: true,
+          connection,
+        });
+      } catch (error) {
+        sendJson(response, 400, {
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Connessione non valida",
+        });
+      }
+
+      return;
+    }
+
+    if (
+      request.method === "DELETE" &&
+      url.pathname.startsWith("/api/connections/")
+    ) {
+      const connectionId = decodeURIComponent(
+        url.pathname.slice(
+          "/api/connections/".length,
+        ),
+      );
+
+      const deleted =
+        await deleteConnection(connectionId);
+
+      if (!deleted) {
+        sendJson(response, 404, {
+          ok: false,
+          error: "Connessione non trovata",
+        });
+        return;
+      }
+
+      broadcast({
+        type: "connections-updated",
+        deletedId: connectionId,
+      });
+
+      sendJson(response, 200, { ok: true });
+      return;
+    }
+
+    if (
       request.method === "POST" &&
       url.pathname === "/api/execute"
     ) {
@@ -133,7 +233,36 @@ const server = http.createServer(
           return;
         }
 
+        const connection = command.connectionId
+          ? getConnection(command.connectionId)
+          : undefined;
+
+        if (
+          command.connectionId &&
+          !connection
+        ) {
+          sendJson(response, 404, {
+            ok: false,
+            error: "Connessione non trovata",
+          });
+          return;
+        }
+
+        if (
+          connection &&
+          connection.pluginId !== command.pluginId
+        ) {
+          sendJson(response, 400, {
+            ok: false,
+            error:
+              "La connessione non appartiene al plugin selezionato",
+          });
+          return;
+        }
+
         const context: GatewayContext = {
+          connection,
+
           setVariable(pluginId, variableId, value) {
             const key = variableKey(pluginId, variableId);
             variables.set(key, value);
@@ -234,6 +363,8 @@ for (const plugin of plugins.values()) {
   }
 }
 
+await loadConnections();
+
 server.listen(PORT, () => {
   console.log(
     `Template GFX Plugin Gateway: http://localhost:${PORT}`,
@@ -242,4 +373,5 @@ server.listen(PORT, () => {
     `WebSocket Gateway: ws://localhost:${PORT}`,
   );
 });
+
 

@@ -61,6 +61,7 @@ type ElementAction = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   delayMs?: number;
   pluginId?: string;
+  connectionId?: string;
   pluginActionId?: string;
   pluginOptions?: Record<string, unknown>;
 };
@@ -101,8 +102,18 @@ type PluginManifest = {
   name: string;
   version: string;
   description: string;
+  configuration: PluginField[];
   actions: PluginActionManifest[];
   variables: PluginVariableManifest[];
+};
+
+type PluginConnection = {
+  id: string;
+  pluginId: string;
+  name: string;
+  config: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type ElementFeedback = {
@@ -718,6 +729,7 @@ type GeneratedAction = {
   method?: string;
   delayMs?: number;
   pluginId?: string;
+  connectionId?: string;
   pluginActionId?: string;
   pluginOptions?: Record<string, unknown>;
 };
@@ -745,6 +757,7 @@ async function runActions(actions: GeneratedAction[]) {
           },
           body: JSON.stringify({
             pluginId: action.pluginId,
+            connectionId: action.connectionId,
             actionId: action.pluginActionId,
             options: action.pluginOptions ?? {},
           }),
@@ -896,6 +909,20 @@ export default function Home() {
 
   const [pluginCatalog, setPluginCatalog] =
     useState<PluginManifest[]>([]);
+  const [pluginConnections, setPluginConnections] =
+    useState<PluginConnection[]>([]);
+  const [
+    connectionManagerOpen,
+    setConnectionManagerOpen,
+  ] = useState(false);
+  const [connectionDraftId, setConnectionDraftId] =
+    useState<string | null>(null);
+  const [connectionPluginId, setConnectionPluginId] =
+    useState("");
+  const [connectionName, setConnectionName] =
+    useState("");
+  const [connectionConfig, setConnectionConfig] =
+    useState<Record<string, unknown>>({});
   const [pluginGatewayOnline, setPluginGatewayOnline] =
     useState(false);
   const [pluginSocketOnline, setPluginSocketOnline] =
@@ -965,6 +992,35 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadConnections() {
+      try {
+        const response = await fetch(
+          `${PLUGIN_GATEWAY_URL}/api/connections`,
+        );
+
+        if (!response.ok) return;
+
+        const connections =
+          (await response.json()) as PluginConnection[];
+
+        if (active) {
+          setPluginConnections(connections);
+        }
+      } catch {
+        // Il gateway potrebbe non essere ancora avviato.
+      }
+    }
+
+    void loadConnections();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     let socket: WebSocket | null = null;
     let reconnectTimer: number | undefined;
     let active = true;
@@ -1006,6 +1062,7 @@ export default function Home() {
           ) as {
             type?: string;
             pluginId?: string;
+  connectionId?: string;
             variableId?: string;
             value?: unknown;
           };
@@ -1819,6 +1876,138 @@ export default function Home() {
     });
   }
 
+  async function reloadPluginConnections() {
+    const response = await fetch(
+      `${PLUGIN_GATEWAY_URL}/api/connections`,
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "Impossibile caricare le connessioni",
+      );
+    }
+
+    const connections =
+      (await response.json()) as PluginConnection[];
+
+    setPluginConnections(connections);
+  }
+
+  function selectConnectionPlugin(pluginId: string) {
+    const plugin = pluginCatalog.find(
+      (item) => item.id === pluginId,
+    );
+
+    const defaults = Object.fromEntries(
+      (plugin?.configuration ?? []).map((field) => [
+        field.id,
+        field.defaultValue ?? "",
+      ]),
+    );
+
+    setConnectionPluginId(pluginId);
+    setConnectionConfig(defaults);
+  }
+
+  function openConnectionManager(pluginId = "") {
+    setConnectionDraftId(null);
+    setConnectionName("");
+
+    if (pluginId) {
+      selectConnectionPlugin(pluginId);
+    } else {
+      setConnectionPluginId("");
+      setConnectionConfig({});
+    }
+
+    setConnectionManagerOpen(true);
+  }
+
+  function editPluginConnection(
+    connection: PluginConnection,
+  ) {
+    setConnectionDraftId(connection.id);
+    setConnectionPluginId(connection.pluginId);
+    setConnectionName(connection.name);
+    setConnectionConfig(connection.config);
+    setConnectionManagerOpen(true);
+  }
+
+  async function savePluginConnection() {
+    if (!connectionPluginId || !connectionName.trim()) {
+      window.alert(
+        "Seleziona il plugin e inserisci il nome.",
+      );
+      return;
+    }
+
+    const response = await fetch(
+      `${PLUGIN_GATEWAY_URL}/api/connections`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: connectionDraftId ?? undefined,
+          pluginId: connectionPluginId,
+          name: connectionName.trim(),
+          config: connectionConfig,
+        }),
+      },
+    );
+
+    const result = (await response.json()) as {
+      ok?: boolean;
+      error?: string;
+    };
+
+    if (!response.ok || !result.ok) {
+      window.alert(
+        result.error ?? "Salvataggio fallito",
+      );
+      return;
+    }
+
+    await reloadPluginConnections();
+    setConnectionDraftId(null);
+    setConnectionName("");
+    setConnectionManagerOpen(false);
+  }
+
+  async function removePluginConnection(
+    connection: PluginConnection,
+  ) {
+    const confirmed = window.confirm(
+      `Eliminare la connessione "${connection.name}"?`,
+    );
+
+    if (!confirmed) return;
+
+    const response = await fetch(
+      `${PLUGIN_GATEWAY_URL}/api/connections/${encodeURIComponent(connection.id)}`,
+      { method: "DELETE" },
+    );
+
+    if (!response.ok) {
+      window.alert("Eliminazione fallita.");
+      return;
+    }
+
+    await reloadPluginConnections();
+
+    setElements((current) =>
+      current.map((element) => ({
+        ...element,
+        actions: element.actions?.map((action) =>
+          action.connectionId === connection.id
+            ? { ...action, connectionId: "" }
+            : action,
+        ),
+      })),
+    );
+  }
+
   function createNewProject() {
     const confirmed = window.confirm(
       "Creare un nuovo progetto? Il progetto corrente è già salvato automaticamente nel browser.",
@@ -1949,6 +2138,7 @@ export default function Home() {
               },
               body: JSON.stringify({
                 pluginId: action.pluginId,
+                connectionId: action.connectionId,
                 actionId: action.pluginActionId,
                 options: action.pluginOptions ?? {},
               }),
@@ -3108,6 +3298,7 @@ export default function Home() {
                                       {
                                         pluginId:
                                           event.target.value,
+                                        connectionId: "",
                                         pluginActionId: "",
                                         pluginOptions: {},
                                       },
@@ -3130,6 +3321,62 @@ export default function Home() {
                                   ))}
                                 </select>
                               </label>
+
+                              <div className="space-y-2">
+                                <label className="block text-sm">
+                                  <span className="mb-1 block text-slate-400">
+                                    Connessione
+                                  </span>
+
+                                  <select
+                                    value={
+                                      action.connectionId ?? ""
+                                    }
+                                    onChange={(event) =>
+                                      updateButtonAction(
+                                        action.id,
+                                        {
+                                          connectionId:
+                                            event.target.value,
+                                        },
+                                      )
+                                    }
+                                    disabled={!action.pluginId}
+                                    className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2 disabled:opacity-50"
+                                  >
+                                    <option value="">
+                                      Seleziona connessione
+                                    </option>
+
+                                    {pluginConnections
+                                      .filter(
+                                        (connection) =>
+                                          connection.pluginId ===
+                                          action.pluginId,
+                                      )
+                                      .map((connection) => (
+                                        <option
+                                          key={connection.id}
+                                          value={connection.id}
+                                        >
+                                          {connection.name}
+                                        </option>
+                                      ))}
+                                  </select>
+                                </label>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openConnectionManager(
+                                      action.pluginId,
+                                    )
+                                  }
+                                  className="w-full rounded-lg bg-violet-700 px-3 py-2 text-sm hover:bg-violet-600"
+                                >
+                                  Gestisci connessioni
+                                </button>
+                              </div>
 
                               <label className="block text-sm">
                                 <span className="mb-1 block text-slate-400">
@@ -4515,6 +4762,252 @@ export default function Home() {
           </aside>
         </div>
 
+        {connectionManagerOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-6">
+            <div className="grid max-h-[90vh] w-full max-w-5xl grid-cols-[320px_1fr] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900">
+              <aside className="overflow-y-auto border-r border-slate-700 p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="font-bold">
+                    Connessioni
+                  </h2>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConnectionDraftId(null);
+                      setConnectionName("");
+                      setConnectionPluginId("");
+                      setConnectionConfig({});
+                    }}
+                    className="rounded-lg bg-blue-600 px-3 py-2 text-sm"
+                  >
+                    Nuova
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {pluginConnections.map((connection) => (
+                    <div
+                      key={connection.id}
+                      className="rounded-xl border border-slate-700 bg-slate-800 p-3"
+                    >
+                      <p className="font-semibold">
+                        {connection.name}
+                      </p>
+                      <p className="mb-3 text-xs text-slate-400">
+                        {
+                          pluginCatalog.find(
+                            (plugin) =>
+                              plugin.id ===
+                              connection.pluginId,
+                          )?.name
+                        }
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            editPluginConnection(
+                              connection,
+                            )
+                          }
+                          className="rounded bg-slate-700 px-2 py-2 text-xs"
+                        >
+                          Modifica
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removePluginConnection(
+                              connection,
+                            )
+                          }
+                          className="rounded bg-red-700 px-2 py-2 text-xs"
+                        >
+                          Elimina
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </aside>
+
+              <section className="overflow-y-auto p-6">
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold">
+                      {connectionDraftId
+                        ? "Modifica connessione"
+                        : "Nuova connessione"}
+                    </h2>
+                    <p className="text-sm text-slate-400">
+                      Configurazione persistente del plugin
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConnectionManagerOpen(false)
+                    }
+                    className="rounded-lg bg-slate-700 px-4 py-2"
+                  >
+                    Chiudi
+                  </button>
+                </div>
+
+                <div className="space-y-5">
+                  <label className="block">
+                    <span className="mb-1 block text-sm text-slate-400">
+                      Plugin
+                    </span>
+
+                    <select
+                      value={connectionPluginId}
+                      onChange={(event) =>
+                        selectConnectionPlugin(
+                          event.target.value,
+                        )
+                      }
+                      disabled={Boolean(connectionDraftId)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 disabled:opacity-50"
+                    >
+                      <option value="">
+                        Seleziona plugin
+                      </option>
+
+                      {pluginCatalog.map((plugin) => (
+                        <option
+                          key={plugin.id}
+                          value={plugin.id}
+                        >
+                          {plugin.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-1 block text-sm text-slate-400">
+                      Nome connessione
+                    </span>
+
+                    <input
+                      value={connectionName}
+                      onChange={(event) =>
+                        setConnectionName(
+                          event.target.value,
+                        )
+                      }
+                      placeholder="es. vMix Regia 1"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3"
+                    />
+                  </label>
+
+                  {pluginCatalog
+                    .find(
+                      (plugin) =>
+                        plugin.id ===
+                        connectionPluginId,
+                    )
+                    ?.configuration.map((field) => (
+                      <label
+                        key={field.id}
+                        className="block"
+                      >
+                        <span className="mb-1 block text-sm text-slate-400">
+                          {field.label}
+                          {field.required ? " *" : ""}
+                        </span>
+
+                        {field.type === "select" ? (
+                          <select
+                            value={String(
+                              connectionConfig[field.id] ??
+                                field.defaultValue ??
+                                "",
+                            )}
+                            onChange={(event) =>
+                              setConnectionConfig(
+                                (current) => ({
+                                  ...current,
+                                  [field.id]:
+                                    event.target.value,
+                                }),
+                              )
+                            }
+                            className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3"
+                          >
+                            {field.choices?.map((choice) => (
+                              <option
+                                key={choice.id}
+                                value={choice.id}
+                              >
+                                {choice.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : field.type === "boolean" ? (
+                          <input
+                            type="checkbox"
+                            checked={Boolean(
+                              connectionConfig[field.id] ??
+                                field.defaultValue ??
+                                false,
+                            )}
+                            onChange={(event) =>
+                              setConnectionConfig(
+                                (current) => ({
+                                  ...current,
+                                  [field.id]:
+                                    event.target.checked,
+                                }),
+                              )
+                            }
+                            className="h-5 w-5"
+                          />
+                        ) : (
+                          <input
+                            type={field.type}
+                            value={String(
+                              connectionConfig[field.id] ??
+                                field.defaultValue ??
+                                "",
+                            )}
+                            onChange={(event) =>
+                              setConnectionConfig(
+                                (current) => ({
+                                  ...current,
+                                  [field.id]:
+                                    field.type === "number"
+                                      ? Number(
+                                          event.target.value,
+                                        )
+                                      : event.target.value,
+                                }),
+                              )
+                            }
+                            className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3"
+                          />
+                        )}
+                      </label>
+                    ))}
+
+                  <button
+                    type="button"
+                    onClick={savePluginConnection}
+                    className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold hover:bg-blue-500"
+                  >
+                    Salva connessione
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+        )}
+
         {showCode && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-8">
             <div className="flex h-[80vh] w-full max-w-5xl flex-col rounded-2xl border border-slate-700 bg-slate-900 p-5">
@@ -4567,6 +5060,7 @@ export default function Home() {
     </DndContext>
   );
 }
+
 
 
 

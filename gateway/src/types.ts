@@ -1,4 +1,4 @@
-﻿export type PluginFieldType =
+export type PluginFieldType =
   | "text"
   | "number"
   | "password"
@@ -46,7 +46,17 @@ export type PluginPreset = {
   options: Record<string, unknown>;
 };
 
+export type PluginConnection = {
+  id: string;
+  pluginId: string;
+  name: string;
+  config: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type GatewayContext = {
+  connection?: PluginConnection;
   setVariable: (
     pluginId: string,
     variableId: string,
@@ -79,3 +89,4 @@ export type PluginDefinition = {
     context: GatewayContext,
   ) => Promise<unknown>;
 };
+

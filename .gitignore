@@ -44,3 +44,5 @@ backups/
 
 gateway/node_modules/
 gateway/dist/
+
+gateway/data/

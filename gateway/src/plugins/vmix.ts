@@ -6,6 +6,14 @@ import type {
 let configuredBaseUrl =
   process.env.VMIX_URL ?? "http://127.0.0.1:8088";
 
+const targetUrlField = {
+  id: "baseUrl",
+  label: "Indirizzo vMix destinatario",
+  type: "text" as const,
+  required: true,
+  defaultValue: "http://127.0.0.1:8088",
+};
+
 function normalizeBaseUrl(value: unknown) {
   const url = new URL(
     String(value || configuredBaseUrl),
@@ -19,6 +27,7 @@ function normalizeBaseUrl(value: unknown) {
 }
 
 async function callVmix(
+  baseUrl: string,
   functionName: string,
   parameters: Record<string, unknown>,
   context: GatewayContext,
@@ -38,7 +47,7 @@ async function callVmix(
   }
 
   const response = await fetch(
-    `${configuredBaseUrl}/api?${query.toString()}`,
+    `${baseUrl}/api?${query.toString()}`,
   );
 
   if (!response.ok) {
@@ -425,13 +434,24 @@ export const vmixPlugin: PluginDefinition = {
 
   async execute(actionId, options, context) {
     try {
+      const targetBaseUrl = normalizeBaseUrl(
+        context.connection?.config.baseUrl ??
+          options.baseUrl ??
+          configuredBaseUrl,
+      );
+
+      context.setVariable(
+        "vmix",
+        "baseUrl",
+        targetBaseUrl,
+      );
       if (actionId === "configure") {
         configuredBaseUrl = normalizeBaseUrl(
           options.baseUrl,
         );
 
         let response = await fetch(
-          `${configuredBaseUrl}/api`,
+          `${targetBaseUrl}/api`,
         );
 
         if (!response.ok) {
@@ -462,7 +482,7 @@ export const vmixPlugin: PluginDefinition = {
 
       if (actionId === "get-state") {
         const response = await fetch(
-          `${configuredBaseUrl}/api`,
+          `${targetBaseUrl}/api`,
         );
 
         if (!response.ok) {
@@ -605,6 +625,7 @@ export const vmixPlugin: PluginDefinition = {
       }
 
       const result = await callVmix(
+        targetBaseUrl,
         functionName,
         parameters,
         context,
@@ -656,3 +677,6 @@ export const vmixPlugin: PluginDefinition = {
     }
   },
 };
+
+
+
