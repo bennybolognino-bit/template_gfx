@@ -12,7 +12,6 @@ import {
   useSensors,  useDroppable,
 } from "@dnd-kit/core";
 import {
-  Code2,
   Trash2,
 } from "lucide-react";
 import { nanoid } from "nanoid";
@@ -49,6 +48,7 @@ import { ConnectionManagerModal } from "@/editor/components/ConnectionManagerMod
 import { CodePreviewModal } from "@/editor/components/CodePreviewModal";
 import { MultiSelectionTools } from "@/editor/components/MultiSelectionTools";
 import { ComponentsLayersPanel } from "@/editor/components/ComponentsLayersPanel";
+import { EditorHeader } from "@/editor/components/EditorHeader";
 import { generateCode } from "@/editor/generator";
 export default function Home() {
   const [elements, setElements] = useState<CanvasElement[]>([]);
@@ -61,7 +61,6 @@ export default function Home() {
   const [draggedCanvasId, setDraggedCanvasId] = useState<string | null>(null);
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
   const [projectName, setProjectName] = useState("Nuovo progetto");
-  const importInputRef = useRef<HTMLInputElement>(null);
 
   const [pluginCatalog, setPluginCatalog] =
     useState<PluginManifest[]>([]);
@@ -1676,84 +1675,16 @@ export default function Home() {
       onDragCancel={() => setActiveType(null)}
     >
       <main className="min-h-screen min-w-[1100px] bg-slate-950 text-white">
-        <header className="flex h-16 items-center justify-between border-b border-slate-800 px-6">
-          <div>
-            <h1 className="text-xl font-bold">Template GFX</h1>
-            <p className="text-xs text-slate-400">Visual application builder</p>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 p-1">
-            <input
-              value={projectName}
-              onChange={(event) =>
-                setProjectName(event.target.value)
-              }
-              className="w-36 rounded-lg bg-slate-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Nome progetto"
-            />
-
-            <button
-              type="button"
-              onClick={createNewProject}
-              className="rounded-lg px-3 py-2 text-sm hover:bg-slate-700"
-            >
-              Nuovo
-            </button>
-
-            <button
-              type="button"
-              onClick={() => importInputRef.current?.click()}
-              className="rounded-lg px-3 py-2 text-sm hover:bg-slate-700"
-            >
-              Importa
-            </button>
-
-            <button
-              type="button"
-              onClick={exportProject}
-              className="rounded-lg px-3 py-2 text-sm hover:bg-slate-700"
-            >
-              Esporta
-            </button>
-
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".json,.template-gfx.json"
-              onChange={importProject}
-              className="hidden"
-            />
-          </div>
-
-          <div className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1">
-            {(["desktop", "tablet", "mobile"] as const).map((device) => (
-              <button
-                key={device}
-                type="button"
-                onClick={() => setDeviceMode(device)}
-                className={`rounded-lg px-4 py-2 text-sm transition ${
-                  deviceMode === device
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                }`}
-              >
-                {device === "desktop"
-                  ? "Desktop"
-                  : device === "tablet"
-                    ? "Tablet"
-                    : "Mobile"}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => setShowCode(true)}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 font-semibold hover:bg-blue-500"
-          >
-            <Code2 className="h-4 w-4" />
-            Genera codice
-          </button>
-        </header>
+        <EditorHeader
+          projectName={projectName}
+          deviceMode={deviceMode}
+          onProjectNameChange={setProjectName}
+          onNewProject={createNewProject}
+          onImportProject={importProject}
+          onExportProject={exportProject}
+          onDeviceModeChange={setDeviceMode}
+          onGenerateCode={() => setShowCode(true)}
+        />
 
         <div className="grid h-[calc(100vh-4rem)] grid-cols-[250px_minmax(500px,1fr)_300px]">
           <ComponentsLayersPanel
