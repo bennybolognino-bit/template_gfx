@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { nanoid } from "nanoid";
 
-type ElementType = "heading" | "text" | "button" | "input" | "container";
+type ElementType = "heading" | "text" | "button" | "input" | "container" | "image";
 type DeviceMode = "desktop" | "tablet" | "mobile";
 
 type CanvasElement = {
@@ -46,6 +46,10 @@ type CanvasElement = {
   visible: boolean;
   locked: boolean;
   zIndex: number;
+  imageSrc?: string;
+  objectFit?: "cover" | "contain" | "fill";
+  borderRadius?: number;
+  opacity?: number;
 };
 
 const palette: Array<{
@@ -58,6 +62,7 @@ const palette: Array<{
   { type: "button", label: "Pulsante", description: "Pulsante interattivo" },
   { type: "input", label: "Campo input", description: "Campo compilabile" },
   { type: "container", label: "Contenitore", description: "Blocco grafico" },
+  { type: "image", label: "Immagine", description: "Foto o grafica" },
 ];
 
 const defaults: Record<ElementType, Omit<CanvasElement, "id" | "type">> = {
@@ -100,6 +105,30 @@ const defaults: Record<ElementType, Omit<CanvasElement, "id" | "type">> = {
     fontSize: 16,
     width: 100,
     alignment: "left",
+  },
+  image: {
+    text: "Immagine",
+    color: "#475569",
+    background: "#e2e8f0",
+    fontSize: 16,
+    width: 100,
+    alignment: "center",
+    positionMode: "grid",
+    x: 40,
+    y: 40,
+    widthPx: 480,
+    heightPx: 320,
+    gridColumnStart: 0,
+    gridColumnSpan: 12,
+    gridRowStart: 0,
+    gridRowSpan: 6,
+    visible: true,
+    locked: false,
+    zIndex: 1,
+    imageSrc: "",
+    objectFit: "cover",
+    borderRadius: 12,
+    opacity: 100,
   },
 };
 
@@ -202,6 +231,53 @@ function CanvasItem({
     );
   }
 
+  if (element.type === "image") {
+    if (!element.imageSrc) {
+      return (
+        <div
+          onClick={(event) =>
+            onSelect(
+              event.shiftKey ||
+                event.ctrlKey ||
+                event.metaKey,
+            )
+          }
+          className={`flex h-full w-full cursor-pointer items-center justify-center border border-dashed border-slate-400 bg-slate-100 text-slate-500 ${commonClass}`}
+          style={{
+            borderRadius: element.borderRadius ?? 12,
+            opacity: (element.opacity ?? 100) / 100,
+          }}
+        >
+          Seleziona o carica un’immagine
+        </div>
+      );
+    }
+
+    return (
+      <div
+        role="img"
+        aria-label={element.text}
+        onClick={(event) =>
+          onSelect(
+            event.shiftKey ||
+              event.ctrlKey ||
+              event.metaKey,
+          )
+        }
+        className={`h-full w-full cursor-pointer bg-center bg-no-repeat ${commonClass}`}
+        style={{
+          backgroundImage: `url(${element.imageSrc})`,
+          backgroundSize:
+            element.objectFit === "fill"
+              ? "100% 100%"
+              : element.objectFit ?? "cover",
+          borderRadius: element.borderRadius ?? 12,
+          opacity: (element.opacity ?? 100) / 100,
+        }}
+      />
+    );
+  }
+
   return (
     <div
       onClick={(event) => onSelect(event.shiftKey || event.ctrlKey || event.metaKey)}
@@ -255,6 +331,14 @@ function generateCode(elements: CanvasElement[]) {
 
         case "input":
           return `      <input placeholder=${text} style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, textAlign: "${element.alignment ?? "left"}", padding: 12, border: "1px solid #cbd5e1", borderRadius: 8 }} />`;
+
+        case "image": {
+          const source = JSON.stringify(
+            element.imageSrc ?? "",
+          );
+
+          return `      <div style={{ ${layoutStyle} }}><img src=${source} alt=${text} style={{ width: "100%", height: "100%", objectFit: "${element.objectFit ?? "cover"}", borderRadius: ${element.borderRadius ?? 12}, opacity: ${(element.opacity ?? 100) / 100} }} /></div>`;
+        }
 
         case "container":
           return `      <div style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, textAlign: "${element.alignment ?? "left"}", minHeight: 128, padding: 24, borderRadius: 12 }}>${element.text}</div>`;
@@ -814,6 +898,32 @@ export default function Home() {
           : { ...element, gridRowStart: position };
       }),
     );
+  }
+
+  function handleImageUpload(file: File) {
+    const maximumSize = 2 * 1024 * 1024;
+
+    if (file.size > maximumSize) {
+      window.alert(
+        "L'immagine è troppo grande. Dimensione massima: 2 MB.",
+      );
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      window.alert("Il file selezionato non è un'immagine.");
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        updateSelected({ imageSrc: reader.result });
+      }
+    };
+
+    reader.readAsDataURL(file);
   }
 
   function updateSelected(changes: Partial<CanvasElement>) {
@@ -1461,6 +1571,121 @@ export default function Home() {
 
             {selected && (
               <div className="space-y-5">
+                {selected.type === "image" && (
+                  <div className="space-y-4 rounded-xl border border-purple-700 bg-purple-950/30 p-4">
+                    <h3 className="font-semibold text-white">
+                      Proprietà immagine
+                    </h3>
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        URL immagine
+                      </span>
+                      <input
+                        type="text"
+                        value={selected.imageSrc ?? ""}
+                        onChange={(event) =>
+                          updateSelected({
+                            imageSrc: event.target.value,
+                          })
+                        }
+                        placeholder="https://..."
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                      />
+                    </label>
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        Carica dal computer
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+
+                          if (file) {
+                            handleImageUpload(file);
+                          }
+
+                          event.target.value = "";
+                        }}
+                        className="block w-full text-xs text-slate-400"
+                      />
+                    </label>
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        Adattamento
+                      </span>
+                      <select
+                        value={selected.objectFit ?? "cover"}
+                        onChange={(event) =>
+                          updateSelected({
+                            objectFit: event.target.value as
+                              | "cover"
+                              | "contain"
+                              | "fill",
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                      >
+                        <option value="cover">Riempi e ritaglia</option>
+                        <option value="contain">Mostra intera</option>
+                        <option value="fill">Adatta al riquadro</option>
+                      </select>
+                    </label>
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        Angoli: {selected.borderRadius ?? 12}px
+                      </span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={selected.borderRadius ?? 12}
+                        onChange={(event) =>
+                          updateSelected({
+                            borderRadius: Number(
+                              event.target.value,
+                            ),
+                          })
+                        }
+                        className="w-full"
+                      />
+                    </label>
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        Opacità: {selected.opacity ?? 100}%
+                      </span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={selected.opacity ?? 100}
+                        onChange={(event) =>
+                          updateSelected({
+                            opacity: Number(event.target.value),
+                          })
+                        }
+                        className="w-full"
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateSelected({ imageSrc: "" })
+                      }
+                      className="w-full rounded-lg bg-red-700 px-3 py-2 text-sm hover:bg-red-600"
+                    >
+                      Rimuovi immagine
+                    </button>
+                  </div>
+                )}
+
                 <div className="rounded-xl border border-blue-700 bg-blue-950/30 p-4">
                   <h3 className="mb-3 font-semibold text-white">
                     Dimensioni elemento
@@ -1957,6 +2182,7 @@ export default function Home() {
     </DndContext>
   );
 }
+
 
 
 
