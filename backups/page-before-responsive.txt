@@ -23,7 +23,6 @@ import {
 import { nanoid } from "nanoid";
 
 type ElementType = "heading" | "text" | "button" | "input" | "container";
-type DeviceMode = "desktop" | "tablet" | "mobile";
 
 type CanvasElement = {
   id: string;
@@ -254,7 +253,6 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [projectLoaded, setProjectLoaded] = useState(false);
   const [draggedCanvasId, setDraggedCanvasId] = useState<string | null>(null);
-  const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -461,27 +459,6 @@ export default function Home() {
             <p className="text-xs text-slate-400">Visual application builder</p>
           </div>
 
-          <div className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1">
-            {(["desktop", "tablet", "mobile"] as const).map((device) => (
-              <button
-                key={device}
-                type="button"
-                onClick={() => setDeviceMode(device)}
-                className={`rounded-lg px-4 py-2 text-sm transition ${
-                  deviceMode === device
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                }`}
-              >
-                {device === "desktop"
-                  ? "Desktop"
-                  : device === "tablet"
-                    ? "Tablet"
-                    : "Mobile"}
-              </button>
-            ))}
-          </div>
-
           <button
             onClick={() => setShowCode(true)}
             className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 font-semibold hover:bg-blue-500"
@@ -508,16 +485,7 @@ export default function Home() {
             <div
               ref={setNodeRef}
               onClick={() => setSelectedId(null)}
-              style={{
-                width:
-                  deviceMode === "desktop"
-                    ? "1180px"
-                    : deviceMode === "tablet"
-                      ? "768px"
-                      : "390px",
-                maxWidth: "100%",
-              }}
-              className={`mx-auto min-h-full space-y-6 rounded-2xl bg-white p-10 text-slate-900 shadow-2xl transition-all duration-300 ${
+              className={`mx-auto min-h-full max-w-5xl space-y-6 rounded-2xl bg-white p-10 text-slate-900 shadow-2xl transition ${
                 isOver ? "ring-4 ring-blue-500" : ""
               }`}
             >
@@ -786,7 +754,6 @@ export default function Home() {
     </DndContext>
   );
 }
-
 
 
 

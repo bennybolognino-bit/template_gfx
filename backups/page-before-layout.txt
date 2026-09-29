@@ -23,7 +23,6 @@ import {
 import { nanoid } from "nanoid";
 
 type ElementType = "heading" | "text" | "button" | "input" | "container";
-type DeviceMode = "desktop" | "tablet" | "mobile";
 
 type CanvasElement = {
   id: string;
@@ -32,8 +31,6 @@ type CanvasElement = {
   color: string;
   background: string;
   fontSize: number;
-  width: number;
-  alignment: "left" | "center" | "right";
 };
 
 const palette: Array<{
@@ -54,40 +51,30 @@ const defaults: Record<ElementType, Omit<CanvasElement, "id" | "type">> = {
     color: "#0f172a",
     background: "transparent",
     fontSize: 42,
-    width: 100,
-    alignment: "left",
   },
   text: {
     text: "Inserisci qui il tuo testo.",
     color: "#334155",
     background: "transparent",
     fontSize: 18,
-    width: 100,
-    alignment: "left",
   },
   button: {
     text: "Pulsante",
     color: "#ffffff",
     background: "#2563eb",
     fontSize: 16,
-    width: 100,
-    alignment: "left",
   },
   input: {
     text: "Scrivi qualcosa...",
     color: "#0f172a",
     background: "#ffffff",
     fontSize: 16,
-    width: 100,
-    alignment: "left",
   },
   container: {
     text: "Contenitore",
     color: "#475569",
     background: "#e2e8f0",
     fontSize: 16,
-    width: 100,
-    alignment: "left",
   },
 };
 
@@ -212,19 +199,19 @@ function generateCode(elements: CanvasElement[]) {
 
       switch (element.type) {
         case "heading":
-          return `      <h1 style={{ color: "${element.color}", fontSize: ${element.fontSize}, width: "${element.width ?? 100}%", textAlign: "${element.alignment ?? "left"}", fontWeight: 700 }}>${element.text}</h1>`;
+          return `      <h1 style={{ color: "${element.color}", fontSize: ${element.fontSize}, fontWeight: 700 }}>${element.text}</h1>`;
 
         case "text":
-          return `      <p style={{ color: "${element.color}", fontSize: ${element.fontSize}, width: "${element.width ?? 100}%", textAlign: "${element.alignment ?? "left"}" }}>${element.text}</p>`;
+          return `      <p style={{ color: "${element.color}", fontSize: ${element.fontSize} }}>${element.text}</p>`;
 
         case "button":
-          return `      <button type="button" style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, width: "${element.width ?? 100}%", textAlign: "${element.alignment ?? "left"}", padding: "12px 20px", borderRadius: 8 }}>${element.text}</button>`;
+          return `      <button type="button" style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, padding: "12px 20px", borderRadius: 8 }}>${element.text}</button>`;
 
         case "input":
-          return `      <input placeholder=${text} style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, width: "${element.width ?? 100}%", textAlign: "${element.alignment ?? "left"}", padding: 12, border: "1px solid #cbd5e1", borderRadius: 8 }} />`;
+          return `      <input placeholder=${text} style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, padding: 12, border: "1px solid #cbd5e1", borderRadius: 8 }} />`;
 
         case "container":
-          return `      <div style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, width: "${element.width ?? 100}%", textAlign: "${element.alignment ?? "left"}", minHeight: 128, padding: 24, borderRadius: 12 }}>${element.text}</div>`;
+          return `      <div style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, minHeight: 128, padding: 24, borderRadius: 12 }}>${element.text}</div>`;
       }
     })
     .join("\n");
@@ -253,8 +240,6 @@ export default function Home() {
   const [showCode, setShowCode] = useState(false);
   const [copied, setCopied] = useState(false);
   const [projectLoaded, setProjectLoaded] = useState(false);
-  const [draggedCanvasId, setDraggedCanvasId] = useState<string | null>(null);
-  const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -282,13 +267,7 @@ export default function Home() {
           ) as CanvasElement[];
 
           if (Array.isArray(parsedProject)) {
-            setElements(
-              parsedProject.map((element) => ({
-                ...element,
-                width: element.width ?? 100,
-                alignment: element.alignment ?? "left",
-              })),
-            );
+            setElements(parsedProject);
           }
         } catch {
           window.localStorage.removeItem("template-gfx-project");
@@ -351,29 +330,6 @@ export default function Home() {
       current.filter((element) => element.id !== selectedId),
     );
     setSelectedId(null);
-  }
-
-  function reorderCanvasElement(targetId: string) {
-    if (!draggedCanvasId || draggedCanvasId === targetId) return;
-
-    setElements((current) => {
-      const sourceIndex = current.findIndex(
-        (element) => element.id === draggedCanvasId,
-      );
-      const targetIndex = current.findIndex(
-        (element) => element.id === targetId,
-      );
-
-      if (sourceIndex < 0 || targetIndex < 0) return current;
-
-      const next = [...current];
-      const [movedElement] = next.splice(sourceIndex, 1);
-      next.splice(targetIndex, 0, movedElement);
-
-      return next;
-    });
-
-    setDraggedCanvasId(null);
   }
 
   function duplicateSelected() {
@@ -461,27 +417,6 @@ export default function Home() {
             <p className="text-xs text-slate-400">Visual application builder</p>
           </div>
 
-          <div className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1">
-            {(["desktop", "tablet", "mobile"] as const).map((device) => (
-              <button
-                key={device}
-                type="button"
-                onClick={() => setDeviceMode(device)}
-                className={`rounded-lg px-4 py-2 text-sm transition ${
-                  deviceMode === device
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                }`}
-              >
-                {device === "desktop"
-                  ? "Desktop"
-                  : device === "tablet"
-                    ? "Tablet"
-                    : "Mobile"}
-              </button>
-            ))}
-          </div>
-
           <button
             onClick={() => setShowCode(true)}
             className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 font-semibold hover:bg-blue-500"
@@ -508,16 +443,7 @@ export default function Home() {
             <div
               ref={setNodeRef}
               onClick={() => setSelectedId(null)}
-              style={{
-                width:
-                  deviceMode === "desktop"
-                    ? "1180px"
-                    : deviceMode === "tablet"
-                      ? "768px"
-                      : "390px",
-                maxWidth: "100%",
-              }}
-              className={`mx-auto min-h-full space-y-6 rounded-2xl bg-white p-10 text-slate-900 shadow-2xl transition-all duration-300 ${
+              className={`mx-auto min-h-full max-w-5xl space-y-6 rounded-2xl bg-white p-10 text-slate-900 shadow-2xl transition ${
                 isOver ? "ring-4 ring-blue-500" : ""
               }`}
             >
@@ -535,39 +461,7 @@ export default function Home() {
               )}
 
               {elements.map((element) => (
-                <div
-                  key={element.id}
-                  draggable
-                  onClick={(event) => event.stopPropagation()}
-                  onDragStart={(event) => {
-                    setDraggedCanvasId(element.id);
-                    event.dataTransfer.effectAllowed = "move";
-                  }}
-                  onDragEnd={() => setDraggedCanvasId(null)}
-                  onDragOver={(event) => {
-                    if (draggedCanvasId) {
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "move";
-                    }
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    reorderCanvasElement(element.id);
-                  }}
-                  className={`cursor-move rounded-lg transition ${
-                    draggedCanvasId === element.id
-                      ? "opacity-40"
-                      : "opacity-100"
-                  }`}
-                  style={{
-                    width: `${element.width ?? 100}%`,
-                    textAlign: element.alignment ?? "left",
-                    marginLeft:
-                      element.alignment === "left" ? 0 : "auto",
-                    marginRight:
-                      element.alignment === "right" ? 0 : "auto",
-                  }}
-                >
+                <div key={element.id} onClick={(event) => event.stopPropagation()}>
                   <CanvasItem
                     element={element}
                     selected={selectedId === element.id}
@@ -619,54 +513,6 @@ export default function Home() {
                     className="w-full"
                   />
                 </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm text-slate-300">
-                    Larghezza: {selected.width ?? 100}%
-                  </span>
-                  <input
-                    type="range"
-                    min="20"
-                    max="100"
-                    step="5"
-                    value={selected.width ?? 100}
-                    onChange={(event) =>
-                      updateSelected({
-                        width: Number(event.target.value),
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-
-                <div>
-                  <span className="mb-2 block text-sm text-slate-300">
-                    Allineamento
-                  </span>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    {(["left", "center", "right"] as const).map(
-                      (alignment) => (
-                        <button
-                          key={alignment}
-                          type="button"
-                          onClick={() => updateSelected({ alignment })}
-                          className={`rounded-lg px-2 py-2 text-sm ${
-                            selected.alignment === alignment
-                              ? "bg-blue-600"
-                              : "bg-slate-700 hover:bg-slate-600"
-                          }`}
-                        >
-                          {alignment === "left"
-                            ? "Sinistra"
-                            : alignment === "center"
-                              ? "Centro"
-                              : "Destra"}
-                        </button>
-                      ),
-                    )}
-                  </div>
-                </div>
 
                 <label className="flex items-center justify-between">
                   <span className="text-sm text-slate-300">Colore testo</span>
@@ -786,8 +632,6 @@ export default function Home() {
     </DndContext>
   );
 }
-
-
 
 
 
