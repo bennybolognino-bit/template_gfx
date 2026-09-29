@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -22,436 +22,33 @@ import {
 } from "lucide-react";
 import { nanoid } from "nanoid";
 
-type ElementType = "heading" | "text" | "button" | "input" | "container" | "image" | "shape";
-type DeviceMode = "desktop" | "tablet" | "mobile";
-
-type ActionType =
-  | "alert"
-  | "confirm"
-  | "link"
-  | "email"
-  | "phone"
-  | "copy"
-  | "download"
-  | "scroll"
-  | "show"
-  | "hide"
-  | "toggle"
-  | "setText"
-  | "api"
-  | "submit"
-  | "play"
-  | "pause"
-  | "openModal"
-  | "closeModal"
-  | "setStorage"
-  | "removeStorage"
-  | "customEvent"
-  | "fullscreen"
-  | "back"
-  | "reload"
-  | "print"
-  | "plugin";
-
-type ElementAction = {
-  id: string;
-  type: ActionType;
-  value?: string;
-  payload?: string;
-  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  delayMs?: number;
-  parallelWithNext?: boolean;
-  pluginId?: string;
-  connectionId?: string;
-  pluginActionId?: string;
-  pluginOptions?: Record<string, unknown>;
-};
-
-type PluginField = {
-  id: string;
-  label: string;
-  type:
-    | "text"
-    | "number"
-    | "password"
-    | "boolean"
-    | "select"
-    | "textarea";
-  required?: boolean;
-  defaultValue?: unknown;
-  choices?: Array<{
-    id: string;
-    label: string;
-  }>;
-};
-
-type PluginActionManifest = {
-  id: string;
-  name: string;
-  description?: string;
-  fields: PluginField[];
-};
-
-type PluginPresetManifest = {
-  id: string;
-  name: string;
-  category: string;
-  actionId: string;
-  options: Record<string, unknown>;
-};
-
-type PluginVariableManifest = {
-  id: string;
-  name: string;
-  initialValue?: string | number | boolean;
-};
-
-type PluginManifest = {
-  id: string;
-  name: string;
-  version: string;
-  description: string;
-  configuration: PluginField[];
-  actions: PluginActionManifest[];
-  variables: PluginVariableManifest[];
-  presets: PluginPresetManifest[];
-};
-
-type PluginConnection = {
-  id: string;
-  pluginId: string;
-  name: string;
-  config: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type ElementFeedback = {
-  enabled: boolean;
-  pluginId: string;
-  variableId: string;
-  operator:
-    | "equals"
-    | "notEquals"
-    | "contains"
-    | "truthy";
-  expectedValue: string;
-  activeBackground: string;
-  activeColor: string;
-  activeText: string;
-  visibility: "unchanged" | "show" | "hide";
-};
-
-const PLUGIN_GATEWAY_URL =
-  process.env.NEXT_PUBLIC_PLUGIN_GATEWAY_URL ??
-  "http://localhost:3210";
-
-const PLUGIN_GATEWAY_WS_URL =
-  process.env.NEXT_PUBLIC_PLUGIN_GATEWAY_WS_URL ??
-  "ws://localhost:3210";
-
-const PLUGIN_GATEWAY_TOKEN =
-  process.env.NEXT_PUBLIC_PLUGIN_GATEWAY_TOKEN ?? "";
-
-function gatewayFetch(
-  input: RequestInfo | URL,
-  init: RequestInit = {},
-) {
-  const headers = new Headers(init.headers);
-
-  if (PLUGIN_GATEWAY_TOKEN) {
-    headers.set(
-      "Authorization",
-      `Bearer ${PLUGIN_GATEWAY_TOKEN}`,
-    );
-  }
-
-  return fetch(input, {
-    ...init,
-    headers,
-  });
-}
-
-function createGatewaySocket() {
-  const url = new URL(PLUGIN_GATEWAY_WS_URL);
-
-  if (PLUGIN_GATEWAY_TOKEN) {
-    url.searchParams.set(
-      "token",
-      PLUGIN_GATEWAY_TOKEN,
-    );
-  }
-
-  return new WebSocket(url);
-}
-
-const actionOptions: Array<{
-  type: ActionType;
-  label: string;
-}> = [
-  { type: "alert", label: "Mostra messaggio" },
-  { type: "confirm", label: "Richiedi conferma" },
-  { type: "link", label: "Apri collegamento" },
-  { type: "email", label: "Invia email" },
-  { type: "phone", label: "Chiama numero" },
-  { type: "copy", label: "Copia testo" },
-  { type: "download", label: "Scarica file" },
-  { type: "scroll", label: "Scorri verso elemento" },
-  { type: "show", label: "Mostra elemento" },
-  { type: "hide", label: "Nascondi elemento" },
-  { type: "toggle", label: "Attiva/disattiva elemento" },
-  { type: "setText", label: "Modifica testo elemento" },
-  { type: "api", label: "Chiamata API" },
-  { type: "submit", label: "Invia modulo" },
-  { type: "play", label: "Riproduci media" },
-  { type: "pause", label: "Pausa media" },
-  { type: "openModal", label: "Apri finestra modale" },
-  { type: "closeModal", label: "Chiudi finestra modale" },
-  { type: "setStorage", label: "Salva variabile locale" },
-  { type: "removeStorage", label: "Elimina variabile locale" },
-  { type: "customEvent", label: "Invia evento personalizzato" },
-  { type: "fullscreen", label: "Schermo intero" },
-  { type: "back", label: "Pagina precedente" },
-  { type: "reload", label: "Ricarica pagina" },
-  { type: "print", label: "Stampa pagina" },
-  { type: "plugin", label: "Comando plugin" },
-];
-
-const targetActionTypes: ActionType[] = [
-  "scroll",
-  "show",
-  "hide",
-  "toggle",
-  "setText",
-  "submit",
-  "play",
-  "pause",
-  "openModal",
-  "closeModal",
-  "fullscreen",
-];
-
-type CanvasElement = {
-  id: string;
-  type: ElementType;
-  text: string;
-  color: string;
-  background: string;
-  fontSize: number;
-  width: number;
-  alignment: "left" | "center" | "right";
-  positionMode: "grid" | "absolute";
-  x: number;
-  y: number;
-  widthPx: number;
-  heightPx: number;
-  gridColumnStart: number;
-  gridColumnSpan: number;
-  gridRowStart: number;
-  gridRowSpan: number;
-  visible: boolean;
-  locked: boolean;
-  zIndex: number;
-  imageSrc?: string;
-  objectFit?: "cover" | "contain" | "fill";
-  borderRadius?: number;
-  opacity?: number;
-  borderWidth?: number;
-  borderColor?: string;
-  rotation?: number;
-  shadow?: "none" | "small" | "medium" | "large";
-  fontFamily?: string;
-  fontWeight?: number;
-  fontStyle?: "normal" | "italic";
-  textDecoration?: "none" | "underline";
-  letterSpacing?: number;
-  lineHeight?: number;
-  shapeType?: "rectangle" | "ellipse" | "line";
-  shapeThickness?: number;
-  backgroundImage?: string;
-  backgroundSize?: "cover" | "contain" | "stretch";
-  backgroundPosition?: "center" | "top" | "bottom" | "left" | "right";
-  isCanvasBackground?: boolean;
-  buttonAction?: "none" | "link" | "alert" | "email" | "phone";
-  actionValue?: string;
-  openNewTab?: boolean;
-  actions?: ElementAction[];
-  feedback?: ElementFeedback;
-};
-
-const palette: Array<{
-  type: ElementType;
-  label: string;
-  description: string;
-}> = [
-  { type: "heading", label: "Titolo", description: "Titolo principale" },
-  { type: "text", label: "Testo", description: "Paragrafo di testo" },
-  { type: "button", label: "Pulsante", description: "Pulsante interattivo" },
-  { type: "input", label: "Campo input", description: "Campo compilabile" },
-  { type: "container", label: "Contenitore", description: "Blocco grafico" },
-  { type: "image", label: "Immagine", description: "Foto o grafica" },
-  { type: "shape", label: "Forma", description: "Rettangolo, ellisse o linea" },
-];
-
-const defaults: Record<ElementType, Omit<CanvasElement, "id" | "type">> = {
-  heading: {
-    text: "Nuovo titolo",
-    color: "#0f172a",
-    background: "transparent",
-    fontSize: 42,
-    width: 100,
-    alignment: "left",
-  },
-  text: {
-    text: "Inserisci qui il tuo testo.",
-    color: "#334155",
-    background: "transparent",
-    fontSize: 18,
-    width: 100,
-    alignment: "left",
-  },
-  button: {
-    text: "Pulsante",
-    color: "#ffffff",
-    background: "#2563eb",
-    fontSize: 16,
-    width: 100,
-    alignment: "left",
-  },
-  input: {
-    text: "Scrivi qualcosa...",
-    color: "#0f172a",
-    background: "#ffffff",
-    fontSize: 16,
-    width: 100,
-    alignment: "left",
-  },
-  container: {
-    text: "Contenitore",
-    color: "#475569",
-    background: "#e2e8f0",
-    fontSize: 16,
-    width: 100,
-    alignment: "left",
-  },
-  image: {
-    text: "Immagine",
-    color: "#475569",
-    background: "#e2e8f0",
-    fontSize: 16,
-    width: 100,
-    alignment: "center",
-    positionMode: "grid",
-    x: 40,
-    y: 40,
-    widthPx: 480,
-    heightPx: 320,
-    gridColumnStart: 0,
-    gridColumnSpan: 12,
-    gridRowStart: 0,
-    gridRowSpan: 6,
-    visible: true,
-    locked: false,
-    zIndex: 1,
-    imageSrc: "",
-    objectFit: "cover",
-    borderRadius: 12,
-    opacity: 100,
-  },
-  shape: {
-    text: "Forma",
-    color: "#ffffff",
-    background: "#2563eb",
-    fontSize: 16,
-    width: 100,
-    alignment: "center",
-    positionMode: "grid",
-    x: 40,
-    y: 40,
-    widthPx: 320,
-    heightPx: 160,
-    gridColumnStart: 0,
-    gridColumnSpan: 6,
-    gridRowStart: 0,
-    gridRowSpan: 4,
-    visible: true,
-    locked: false,
-    zIndex: 1,
-    borderRadius: 0,
-    opacity: 100,
-    borderWidth: 0,
-    borderColor: "#0f172a",
-    rotation: 0,
-    shadow: "none",
-    shapeType: "rectangle",
-    shapeThickness: 4,
-  },
-};
-
-function getElementActions(
-  element: CanvasElement,
-): ElementAction[] {
-  if (element.actions?.length) {
-    return element.actions;
-  }
-
-  if (
-    element.buttonAction &&
-    element.buttonAction !== "none"
-  ) {
-    return [
-      {
-        id: `legacy-${element.id}`,
-        type: element.buttonAction as ActionType,
-        value: element.actionValue ?? "",
-        method: "GET",
-        delayMs: 0,
-      },
-    ];
-  }
-
-  return [];
-}
-
-function applyElementFeedback(
-  element: CanvasElement,
-  variables: Record<string, unknown>,
-): CanvasElement {
-  const feedback = element.feedback;
-
-  if (!feedback?.enabled) return element;
-
-  const key = `${feedback.pluginId}:${feedback.variableId}`;
-  const rawValue = variables[key];
-  const currentValue = String(rawValue ?? "");
-  const expectedValue = feedback.expectedValue ?? "";
-
-  const matches =
-    feedback.operator === "equals"
-      ? currentValue === expectedValue
-      : feedback.operator === "notEquals"
-        ? currentValue !== expectedValue
-        : feedback.operator === "contains"
-          ? currentValue.includes(expectedValue)
-          : Boolean(rawValue);
-
-  if (!matches) return element;
-
-  return {
-    ...element,
-    background:
-      feedback.activeBackground || element.background,
-    color: feedback.activeColor || element.color,
-    text: feedback.activeText || element.text,
-    visible:
-      feedback.visibility === "hide"
-        ? false
-        : feedback.visibility === "show"
-          ? true
-          : element.visible,
-  };
-}
-
+import {
+  actionOptions,
+  targetActionTypes,
+} from "@/editor/actions";
+import {
+  defaults,
+  palette,
+} from "@/editor/catalog";
+import {
+  createGatewaySocket,
+  gatewayFetch,
+  PLUGIN_GATEWAY_URL,
+} from "@/editor/gateway";
+import {
+  applyElementFeedback,
+  getElementActions,
+} from "@/editor/helpers";
+import type {
+  ActionType,
+  CanvasElement,
+  DeviceMode,
+  ElementAction,
+  ElementFeedback,
+  ElementType,
+  PluginConnection,
+  PluginManifest,
+} from "@/editor/types";
 function PaletteItem({
   type,
   label,
@@ -625,7 +222,7 @@ function CanvasItem({
             borderRadius: element.borderRadius ?? 12,
           }}
         >
-          Seleziona o carica un’immagine
+          Seleziona o carica unâ€™immagine
         </div>
       );
     }
@@ -1029,6 +626,10 @@ export default function Home() {
   const [pluginVariables, setPluginVariables] =
     useState<Record<string, unknown>>({});
 
+  const historyRef = useRef<CanvasElement[][]>([[]]);
+  const historyIndexRef = useRef(0);
+  const historyInitializedRef = useRef(false);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -1139,7 +740,7 @@ export default function Home() {
           setPluginVariables(values);
         }
       } catch {
-        // Il WebSocket tenterà nuovamente la connessione.
+        // Il WebSocket tenterÃ  nuovamente la connessione.
       }
     }
 
@@ -1784,13 +1385,13 @@ export default function Home() {
 
     if (file.size > maximumSize) {
       window.alert(
-        "L'immagine è troppo grande. Dimensione massima: 2 MB.",
+        "L'immagine Ã¨ troppo grande. Dimensione massima: 2 MB.",
       );
       return;
     }
 
     if (!file.type.startsWith("image/")) {
-      window.alert("Il file selezionato non è un'immagine.");
+      window.alert("Il file selezionato non Ã¨ un'immagine.");
       return;
     }
 
@@ -1812,13 +1413,13 @@ export default function Home() {
 
     if (file.size > maximumSize) {
       window.alert(
-        "L'immagine è troppo grande. Dimensione massima: 2 MB.",
+        "L'immagine Ã¨ troppo grande. Dimensione massima: 2 MB.",
       );
       return;
     }
 
     if (!file.type.startsWith("image/")) {
-      window.alert("Il file selezionato non è un'immagine.");
+      window.alert("Il file selezionato non Ã¨ un'immagine.");
       return;
     }
 
@@ -2109,7 +1710,7 @@ export default function Home() {
 
   function createNewProject() {
     const confirmed = window.confirm(
-      "Creare un nuovo progetto? Il progetto corrente è già salvato automaticamente nel browser.",
+      "Creare un nuovo progetto? Il progetto corrente Ã¨ giÃ  salvato automaticamente nel browser.",
     );
 
     if (!confirmed) return;
@@ -2403,13 +2004,13 @@ export default function Home() {
 
       case "back":
         window.alert(
-          "Nell'app generata tornerà alla pagina precedente.",
+          "Nell'app generata tornerÃ  alla pagina precedente.",
         );
         return true;
 
       case "reload":
         window.alert(
-          "Nell'app generata ricaricherà la pagina.",
+          "Nell'app generata ricaricherÃ  la pagina.",
         );
         return true;
 
@@ -2748,7 +2349,7 @@ export default function Home() {
                         className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
                         title="Mostra o nascondi"
                       >
-                        {element.visible === false ? "○" : "●"}
+                        {element.visible === false ? "â—‹" : "â—"}
                       </button>
 
                       <button
@@ -2759,7 +2360,7 @@ export default function Home() {
                         className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
                         title="Blocca o sblocca"
                       >
-                        {element.locked ? "🔒" : "🔓"}
+                        {element.locked ? "ðŸ”’" : "ðŸ”“"}
                       </button>
 
                       <button
@@ -2770,7 +2371,7 @@ export default function Home() {
                         className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
                         title="Porta avanti"
                       >
-                        ↑
+                        â†‘
                       </button>
 
                       <button
@@ -2781,7 +2382,7 @@ export default function Home() {
                         className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
                         title="Porta indietro"
                       >
-                        ↓
+                        â†“
                       </button>
 
                       <button
@@ -2792,7 +2393,7 @@ export default function Home() {
                         className="rounded bg-blue-800 p-1 text-xs hover:bg-blue-700"
                         title="Porta in primo piano"
                       >
-                        ⇈
+                        â‡ˆ
                       </button>
 
                       <button
@@ -2803,7 +2404,7 @@ export default function Home() {
                         className="rounded bg-blue-800 p-1 text-xs hover:bg-blue-700"
                         title="Porta sullo sfondo"
                       >
-                        ⇊
+                        â‡Š
                       </button>
                     </div>
                   </div>
@@ -3013,7 +2614,7 @@ export default function Home() {
 
           <aside className="overflow-y-auto border-l border-slate-800 p-5">
             <h2 className="mb-5 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              ProprietÃ 
+              ProprietÃƒÂ 
             </h2>
 
             {selectedIds.length > 1 && (
@@ -3033,12 +2634,12 @@ export default function Home() {
                 <div className="mb-4 grid grid-cols-3 gap-2">
                   {(
                     [
-                      ["left", "← Sinistra"],
-                      ["center", "↔ Centro"],
-                      ["right", "Destra →"],
-                      ["top", "↑ Alto"],
-                      ["middle", "↕ Centro"],
-                      ["bottom", "Basso ↓"],
+                      ["left", "â† Sinistra"],
+                      ["center", "â†” Centro"],
+                      ["right", "Destra â†’"],
+                      ["top", "â†‘ Alto"],
+                      ["middle", "â†• Centro"],
+                      ["bottom", "Basso â†“"],
                     ] as const
                   ).map(([mode, label]) => (
                     <button
@@ -3065,7 +2666,7 @@ export default function Home() {
                     }
                     className="rounded-lg bg-blue-700 px-2 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Distribuisci ↔
+                    Distribuisci â†”
                   </button>
 
                   <button
@@ -3076,7 +2677,7 @@ export default function Home() {
                     }
                     className="rounded-lg bg-blue-700 px-2 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Distribuisci ↕
+                    Distribuisci â†•
                   </button>
                 </div>
               </div>
@@ -3122,7 +2723,7 @@ export default function Home() {
                 {selected.type === "shape" && (
                   <div className="space-y-4 rounded-xl border border-cyan-700 bg-cyan-950/20 p-4">
                     <h3 className="font-semibold text-white">
-                      Proprietà forma
+                      ProprietÃ  forma
                     </h3>
 
                     <div className="grid grid-cols-3 gap-2">
@@ -3193,7 +2794,7 @@ export default function Home() {
                 {selected.type === "image" && (
                   <div className="space-y-4 rounded-xl border border-purple-700 bg-purple-950/30 p-4">
                     <h3 className="font-semibold text-white">
-                      Proprietà immagine
+                      ProprietÃ  immagine
                     </h3>
 
                     <label className="block text-sm">
@@ -3277,7 +2878,7 @@ export default function Home() {
 
                     <label className="block text-sm">
                       <span className="mb-1 block text-slate-400">
-                        Opacità: {selected.opacity ?? 100}%
+                        OpacitÃ : {selected.opacity ?? 100}%
                       </span>
                       <input
                         type="range"
@@ -3336,7 +2937,7 @@ export default function Home() {
                           Action Builder
                         </h3>
                         <p className="text-xs text-slate-400">
-                          Le azioni vengono eseguite dall'alto verso il basso.
+                          Le azioni vengono eseguite dall&apos;alto verso il basso.
                         </p>
                       </div>
 
@@ -3377,7 +2978,7 @@ export default function Home() {
                                 }
                                 className="rounded bg-slate-700 px-2 py-1 text-xs"
                               >
-                                ↑
+                                â†‘
                               </button>
 
                               <button
@@ -3390,7 +2991,7 @@ export default function Home() {
                                 }
                                 className="rounded bg-slate-700 px-2 py-1 text-xs"
                               >
-                                ↓
+                                â†“
                               </button>
 
                               <button
@@ -3400,7 +3001,7 @@ export default function Home() {
                                 }
                                 className="rounded bg-red-700 px-2 py-1 text-xs"
                               >
-                                ×
+                                Ã—
                               </button>
                             </div>
                           </div>
@@ -3573,7 +3174,7 @@ export default function Home() {
                                           key={preset.id}
                                           value={preset.id}
                                         >
-                                          {preset.category} —{" "}
+                                          {preset.category} â€”{" "}
                                           {preset.name}
                                         </option>
                                       ))}
@@ -3903,7 +3504,7 @@ export default function Home() {
                             />
 
                             <span>
-                              Esegui insieme all’azione successiva
+                              Esegui insieme allâ€™azione successiva
                             </span>
                           </label>
                         </div>
@@ -4250,7 +3851,7 @@ export default function Home() {
 
                   <label className="block text-sm">
                     <span className="mb-1 block text-slate-400">
-                      Opacità: {selected.opacity ?? 100}%
+                      OpacitÃ : {selected.opacity ?? 100}%
                     </span>
                     <input
                       type="range"
@@ -4268,7 +3869,7 @@ export default function Home() {
 
                   <label className="block text-sm">
                     <span className="mb-1 block text-slate-400">
-                      Rotazione: {selected.rotation ?? 0}°
+                      Rotazione: {selected.rotation ?? 0}Â°
                     </span>
                     <input
                       type="range"
@@ -4518,7 +4119,7 @@ export default function Home() {
 
                       <label className="block text-sm">
                         <span className="mb-1 block text-slate-400">
-                          Visibilità
+                          VisibilitÃ 
                         </span>
                         <select
                           value={selected.feedback.visibility}
@@ -4954,7 +4555,7 @@ export default function Home() {
                     onClick={() => moveSelected("up")}
                     className="rounded-lg bg-slate-700 px-2 py-2 text-sm hover:bg-slate-600"
                   >
-                    ↑ Su
+                    â†‘ Su
                   </button>
 
                   <button
@@ -4962,7 +4563,7 @@ export default function Home() {
                     onClick={() => moveSelected("down")}
                     className="rounded-lg bg-slate-700 px-2 py-2 text-sm hover:bg-slate-600"
                   >
-                    ↓ Giù
+                    â†“ GiÃ¹
                   </button>
 
                   <button
@@ -5284,6 +4885,8 @@ export default function Home() {
     </DndContext>
   );
 }
+
+
 
 
 
