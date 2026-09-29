@@ -47,6 +47,7 @@ import type {
 import { CanvasItem } from "@/editor/components/CanvasItem";
 import { ConnectionManagerModal } from "@/editor/components/ConnectionManagerModal";
 import { CodePreviewModal } from "@/editor/components/CodePreviewModal";
+import { MultiSelectionTools } from "@/editor/components/MultiSelectionTools";
 import { PaletteItem } from "@/editor/components/PaletteItem";
 import { generateCode } from "@/editor/generator";
 export default function Home() {
@@ -2076,71 +2077,11 @@ export default function Home() {
               Proprietà
             </h2>
 
-            {selectedIds.length > 1 && (
-              <div className="mb-5 rounded-xl border border-blue-700 bg-blue-950/40 p-3">
-                <p className="mb-1 text-sm font-semibold">
-                  {selectedIds.length} elementi selezionati
-                </p>
-
-                <p className="mb-3 text-xs text-slate-400">
-                  Per una distribuzione visibile seleziona almeno tre elementi.
-                </p>
-
-                <p className="mb-2 text-xs font-semibold uppercase text-slate-400">
-                  Allinea
-                </p>
-
-                <div className="mb-4 grid grid-cols-3 gap-2">
-                  {(
-                    [
-                      ["left", "← Sinistra"],
-                      ["center", "↔ Centro"],
-                      ["right", "Destra →"],
-                      ["top", "↑ Alto"],
-                      ["middle", "↕ Centro"],
-                      ["bottom", "Basso ↓"],
-                    ] as const
-                  ).map(([mode, label]) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => alignSelected(mode)}
-                      className="rounded-lg bg-slate-700 px-2 py-2 text-xs hover:bg-slate-600"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                <p className="mb-2 text-xs font-semibold uppercase text-slate-400">
-                  Distribuisci spazi
-                </p>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={selectedIds.length < 3}
-                    onClick={() =>
-                      distributeSelected("horizontal")
-                    }
-                    className="rounded-lg bg-blue-700 px-2 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Distribuisci ↔
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={selectedIds.length < 3}
-                    onClick={() =>
-                      distributeSelected("vertical")
-                    }
-                    className="rounded-lg bg-blue-700 px-2 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Distribuisci ↕
-                  </button>
-                </div>
-              </div>
-            )}
+            <MultiSelectionTools
+              selectedCount={selectedIds.length}
+              onAlign={alignSelected}
+              onDistribute={distributeSelected}
+            />
 
             {!selected && (
               <p className="text-sm text-slate-500">
