@@ -1,15 +1,13 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import {
+  closestCenter,
   DndContext,
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-  PointerSensor,
-  pointerWithin,
-  useSensor,
-  useSensors,  useDraggable,
+  useDraggable,
   useDroppable,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
@@ -240,14 +238,6 @@ export default function Home() {
   const [showCode, setShowCode] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-  );
-
   const { setNodeRef, isOver } = useDroppable({ id: "canvas" });
 
   const selected = elements.find((element) => element.id === selectedId);
@@ -262,10 +252,10 @@ export default function Home() {
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    const draggedId = String(event.active.id);
+    const { active, over } = event;
 
-    if (draggedId.startsWith("palette-")) {
-      const type = draggedId.replace("palette-", "") as ElementType;
+    if (over?.id === "canvas") {
+      const type = String(active.id).replace("palette-", "") as ElementType;
       const id = nanoid();
 
       setElements((current) => [
@@ -318,11 +308,9 @@ export default function Home() {
 
   return (
     <DndContext
-      sensors={sensors}
-      collisionDetection={pointerWithin}
+      collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => setActiveType(null)}
     >
       <main className="min-h-screen min-w-[1100px] bg-slate-950 text-white">
         <header className="flex h-16 items-center justify-between border-b border-slate-800 px-6">
@@ -362,7 +350,7 @@ export default function Home() {
               }`}
             >
               {elements.length === 0 && (
-                <div className="pointer-events-none flex min-h-[500px] items-center justify-center rounded-xl border-2 border-dashed border-slate-300 text-center text-slate-400">
+                <div className="flex min-h-[500px] items-center justify-center rounded-xl border-2 border-dashed border-slate-300 text-center text-slate-400">
                   <div>
                     <p className="text-lg font-semibold">
                       Trascina qui un componente
@@ -388,7 +376,7 @@ export default function Home() {
 
           <aside className="overflow-y-auto border-l border-slate-800 p-5">
             <h2 className="mb-5 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              ProprietÃ 
+              Proprietà
             </h2>
 
             {!selected && (
@@ -520,4 +508,3 @@ export default function Home() {
     </DndContext>
   );
 }
-

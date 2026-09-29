@@ -262,10 +262,10 @@ export default function Home() {
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    const draggedId = String(event.active.id);
+    const { active, over } = event;
 
-    if (draggedId.startsWith("palette-")) {
-      const type = draggedId.replace("palette-", "") as ElementType;
+    if (over?.id === "canvas") {
+      const type = String(active.id).replace("palette-", "") as ElementType;
       const id = nanoid();
 
       setElements((current) => [
@@ -520,4 +520,3 @@ export default function Home() {
     </DndContext>
   );
 }
-
