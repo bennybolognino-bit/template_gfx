@@ -104,7 +104,106 @@ export function generateCode(elements: CanvasElement[]) {
 
   return `"use client";
 
-const GENERATED_FEEDBACKS = ${JSON.stringify(feedbackConfig)};
+import { useEffect } from "react";
+
+const GATEWAY_URL =
+  process.env.NEXT_PUBLIC_PLUGIN_GATEWAY_URL ??
+  "http://localhost:3210";
+
+const GATEWAY_WS_URL =
+  process.env.NEXT_PUBLIC_PLUGIN_GATEWAY_WS_URL ??
+  "ws://localhost:3210";
+
+const GATEWAY_TOKEN =
+  process.env.NEXT_PUBLIC_PLUGIN_GATEWAY_TOKEN ?? "";
+
+type GeneratedFeedbackConfig = {
+  elementId: string;
+  feedback: {
+    pluginId: string;
+    variableId: string;
+    operator:
+      | "equals"
+      | "notEquals"
+      | "contains"
+      | "truthy";
+    expectedValue: string;
+    activeBackground: string;
+    activeColor: string;
+    activeText: string;
+    visibility: "unchanged" | "show" | "hide";
+  };
+  baseBackground: string;
+  baseColor: string;
+  baseText: string;
+  baseVisible: boolean;
+};
+
+const GENERATED_FEEDBACKS: GeneratedFeedbackConfig[] =
+  ${JSON.stringify(feedbackConfig)};
+
+function applyGeneratedFeedback(event: {
+  pluginId?: string;
+  variableId?: string;
+  value?: unknown;
+}) {
+  for (const configuration of GENERATED_FEEDBACKS) {
+    const feedback = configuration.feedback;
+
+    if (
+      feedback.pluginId !== event.pluginId ||
+      feedback.variableId !== event.variableId
+    ) {
+      continue;
+    }
+
+    const element = document.getElementById(
+      configuration.elementId,
+    );
+
+    if (!element) continue;
+
+    const currentValue = String(event.value ?? "");
+    const expectedValue = feedback.expectedValue ?? "";
+
+    const matches =
+      feedback.operator === "equals"
+        ? currentValue === expectedValue
+        : feedback.operator === "notEquals"
+          ? currentValue !== expectedValue
+          : feedback.operator === "contains"
+            ? currentValue.includes(expectedValue)
+            : Boolean(event.value);
+
+    element.style.backgroundColor = matches
+      ? feedback.activeBackground
+      : configuration.baseBackground;
+
+    element.style.color = matches
+      ? feedback.activeColor
+      : configuration.baseColor;
+
+    if (feedback.visibility === "show") {
+      element.style.display = matches
+        ? ""
+        : "none";
+    } else if (feedback.visibility === "hide") {
+      element.style.display = matches
+        ? "none"
+        : "";
+    } else {
+      element.style.display = configuration.baseVisible
+        ? ""
+        : "none";
+    }
+
+    if (feedback.activeText) {
+      element.textContent = matches
+        ? feedback.activeText
+        : configuration.baseText;
+    }
+  }
+}
 
 type GeneratedAction = {
   type: string;
@@ -212,7 +311,7 @@ async function runActions(actions: GeneratedAction[]) {
       target?.scrollIntoView({ behavior: "smooth" });
     }
 
-    if (action.type === "show" && target) target.style.display = "none" ? "" : "";
+    if (action.type === "show" && target) target.style.display = "";
     if (action.type === "hide" && target) target.style.display = "none";
 
     if (action.type === "toggle" && target) {
@@ -325,6 +424,7 @@ ${generatedElements || "      {/* Trascina dei componenti nel canvas */}"}
 }
 `;
 }
+
 
 
 
