@@ -14,6 +14,7 @@ import { vmixPlugin } from "./plugins/vmix.js";
 import { obsPlugin } from "./plugins/obs.js";
 import { oscPlugin } from "./plugins/osc.js";
 import { mqttPlugin } from "./plugins/mqtt.js";
+import { httpWebSocketPlugin } from "./plugins/http-websocket.js";
 import type {
   GatewayContext,
   PluginDefinition,
@@ -27,6 +28,7 @@ const plugins = new Map<string, PluginDefinition>([
   [obsPlugin.id, obsPlugin],
   [oscPlugin.id, oscPlugin],
   [mqttPlugin.id, mqttPlugin],
+  [httpWebSocketPlugin.id, httpWebSocketPlugin],
 ]);
 
 const variables = new Map<string, unknown>();
@@ -379,6 +381,7 @@ server.listen(PORT, () => {
     `WebSocket Gateway: ws://localhost:${PORT}`,
   );
 });
+
 
 
 

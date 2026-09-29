@@ -4764,8 +4764,8 @@ export default function Home() {
 
         {connectionManagerOpen && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-6">
-            <div className="grid max-h-[90vh] w-full max-w-5xl grid-cols-[320px_1fr] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900">
-              <aside className="overflow-y-auto border-r border-slate-700 p-4">
+            <div className="grid h-[90vh] min-h-0 w-full max-w-5xl grid-cols-[320px_1fr] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900">
+              <aside className="min-h-0 overflow-y-auto overscroll-contain border-r border-slate-700 p-4 pb-20">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="font-bold">
                     Connessioni
@@ -4834,7 +4834,7 @@ export default function Home() {
                 </div>
               </aside>
 
-              <section className="overflow-y-auto p-6">
+              <section className="min-h-0 overflow-y-auto overscroll-contain p-6 pb-24">
                 <div className="mb-6 flex items-center justify-between">
                   <div>
                     <h2 className="text-xl font-bold">
@@ -5060,6 +5060,7 @@ export default function Home() {
     </DndContext>
   );
 }
+
 
 
 
