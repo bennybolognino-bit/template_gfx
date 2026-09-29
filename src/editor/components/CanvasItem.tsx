@@ -145,7 +145,7 @@ export function CanvasItem({
             borderRadius: element.borderRadius ?? 12,
           }}
         >
-          Seleziona o carica unâ€™immagine
+          Seleziona o carica un’immagine
         </div>
       );
     }

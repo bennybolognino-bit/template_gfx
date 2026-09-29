@@ -13,8 +13,6 @@ import {
 } from "@dnd-kit/core";
 import {
   Code2,
-  Copy,
-  Download,
   Trash2,
 } from "lucide-react";
 import { nanoid } from "nanoid";
@@ -201,7 +199,7 @@ export default function Home() {
           setPluginVariables(values);
         }
       } catch {
-        // Il WebSocket tenterÃ  nuovamente la connessione.
+        // Il WebSocket tenterà nuovamente la connessione.
       }
     }
 
@@ -846,13 +844,13 @@ export default function Home() {
 
     if (file.size > maximumSize) {
       window.alert(
-        "L'immagine Ã¨ troppo grande. Dimensione massima: 2 MB.",
+        "L'immagine è troppo grande. Dimensione massima: 2 MB.",
       );
       return;
     }
 
     if (!file.type.startsWith("image/")) {
-      window.alert("Il file selezionato non Ã¨ un'immagine.");
+      window.alert("Il file selezionato non è un'immagine.");
       return;
     }
 
@@ -874,13 +872,13 @@ export default function Home() {
 
     if (file.size > maximumSize) {
       window.alert(
-        "L'immagine Ã¨ troppo grande. Dimensione massima: 2 MB.",
+        "L'immagine è troppo grande. Dimensione massima: 2 MB.",
       );
       return;
     }
 
     if (!file.type.startsWith("image/")) {
-      window.alert("Il file selezionato non Ã¨ un'immagine.");
+      window.alert("Il file selezionato non è un'immagine.");
       return;
     }
 
@@ -1171,7 +1169,7 @@ export default function Home() {
 
   function createNewProject() {
     const confirmed = window.confirm(
-      "Creare un nuovo progetto? Il progetto corrente Ã¨ giÃ  salvato automaticamente nel browser.",
+      "Creare un nuovo progetto? Il progetto corrente è già salvato automaticamente nel browser.",
     );
 
     if (!confirmed) return;
@@ -1465,13 +1463,13 @@ export default function Home() {
 
       case "back":
         window.alert(
-          "Nell'app generata tornerÃ  alla pagina precedente.",
+          "Nell'app generata tornerà alla pagina precedente.",
         );
         return true;
 
       case "reload":
         window.alert(
-          "Nell'app generata ricaricherÃ  la pagina.",
+          "Nell'app generata ricaricherà la pagina.",
         );
         return true;
 
@@ -1810,7 +1808,7 @@ export default function Home() {
                         className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
                         title="Mostra o nascondi"
                       >
-                        {element.visible === false ? "â—‹" : "â—"}
+                        {element.visible === false ? "○" : "●"}
                       </button>
 
                       <button
@@ -1821,7 +1819,7 @@ export default function Home() {
                         className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
                         title="Blocca o sblocca"
                       >
-                        {element.locked ? "ðŸ”’" : "ðŸ”“"}
+                        {element.locked ? "🔒" : "🔓"}
                       </button>
 
                       <button
@@ -1832,7 +1830,7 @@ export default function Home() {
                         className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
                         title="Porta avanti"
                       >
-                        â†‘
+                        ↑
                       </button>
 
                       <button
@@ -1843,7 +1841,7 @@ export default function Home() {
                         className="rounded bg-slate-700 p-1 text-xs hover:bg-slate-600"
                         title="Porta indietro"
                       >
-                        â†“
+                        ↓
                       </button>
 
                       <button
@@ -1854,7 +1852,7 @@ export default function Home() {
                         className="rounded bg-blue-800 p-1 text-xs hover:bg-blue-700"
                         title="Porta in primo piano"
                       >
-                        â‡ˆ
+                        ⇈
                       </button>
 
                       <button
@@ -1865,7 +1863,7 @@ export default function Home() {
                         className="rounded bg-blue-800 p-1 text-xs hover:bg-blue-700"
                         title="Porta sullo sfondo"
                       >
-                        â‡Š
+                        ⇊
                       </button>
                     </div>
                   </div>
@@ -2075,7 +2073,7 @@ export default function Home() {
 
           <aside className="overflow-y-auto border-l border-slate-800 p-5">
             <h2 className="mb-5 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              ProprietÃƒÂ 
+              Proprietà
             </h2>
 
             {selectedIds.length > 1 && (
@@ -2095,12 +2093,12 @@ export default function Home() {
                 <div className="mb-4 grid grid-cols-3 gap-2">
                   {(
                     [
-                      ["left", "â† Sinistra"],
-                      ["center", "â†” Centro"],
-                      ["right", "Destra â†’"],
-                      ["top", "â†‘ Alto"],
-                      ["middle", "â†• Centro"],
-                      ["bottom", "Basso â†“"],
+                      ["left", "← Sinistra"],
+                      ["center", "↔ Centro"],
+                      ["right", "Destra →"],
+                      ["top", "↑ Alto"],
+                      ["middle", "↕ Centro"],
+                      ["bottom", "Basso ↓"],
                     ] as const
                   ).map(([mode, label]) => (
                     <button
@@ -2127,7 +2125,7 @@ export default function Home() {
                     }
                     className="rounded-lg bg-blue-700 px-2 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Distribuisci â†”
+                    Distribuisci ↔
                   </button>
 
                   <button
@@ -2138,7 +2136,7 @@ export default function Home() {
                     }
                     className="rounded-lg bg-blue-700 px-2 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Distribuisci â†•
+                    Distribuisci ↕
                   </button>
                 </div>
               </div>
@@ -2184,7 +2182,7 @@ export default function Home() {
                 {selected.type === "shape" && (
                   <div className="space-y-4 rounded-xl border border-cyan-700 bg-cyan-950/20 p-4">
                     <h3 className="font-semibold text-white">
-                      ProprietÃ  forma
+                      Proprietà forma
                     </h3>
 
                     <div className="grid grid-cols-3 gap-2">
@@ -2255,7 +2253,7 @@ export default function Home() {
                 {selected.type === "image" && (
                   <div className="space-y-4 rounded-xl border border-purple-700 bg-purple-950/30 p-4">
                     <h3 className="font-semibold text-white">
-                      ProprietÃ  immagine
+                      Proprietà immagine
                     </h3>
 
                     <label className="block text-sm">
@@ -2339,7 +2337,7 @@ export default function Home() {
 
                     <label className="block text-sm">
                       <span className="mb-1 block text-slate-400">
-                        OpacitÃ : {selected.opacity ?? 100}%
+                        Opacità: {selected.opacity ?? 100}%
                       </span>
                       <input
                         type="range"
@@ -2439,7 +2437,7 @@ export default function Home() {
                                 }
                                 className="rounded bg-slate-700 px-2 py-1 text-xs"
                               >
-                                â†‘
+                                ↑
                               </button>
 
                               <button
@@ -2452,7 +2450,7 @@ export default function Home() {
                                 }
                                 className="rounded bg-slate-700 px-2 py-1 text-xs"
                               >
-                                â†“
+                                ↓
                               </button>
 
                               <button
@@ -2462,7 +2460,7 @@ export default function Home() {
                                 }
                                 className="rounded bg-red-700 px-2 py-1 text-xs"
                               >
-                                Ã—
+                                ×
                               </button>
                             </div>
                           </div>
@@ -2635,7 +2633,7 @@ export default function Home() {
                                           key={preset.id}
                                           value={preset.id}
                                         >
-                                          {preset.category} â€”{" "}
+                                          {preset.category} —{" "}
                                           {preset.name}
                                         </option>
                                       ))}
@@ -2965,7 +2963,7 @@ export default function Home() {
                             />
 
                             <span>
-                              Esegui insieme allâ€™azione successiva
+                              Esegui insieme all’azione successiva
                             </span>
                           </label>
                         </div>
@@ -3312,7 +3310,7 @@ export default function Home() {
 
                   <label className="block text-sm">
                     <span className="mb-1 block text-slate-400">
-                      OpacitÃ : {selected.opacity ?? 100}%
+                      Opacità: {selected.opacity ?? 100}%
                     </span>
                     <input
                       type="range"
@@ -3330,7 +3328,7 @@ export default function Home() {
 
                   <label className="block text-sm">
                     <span className="mb-1 block text-slate-400">
-                      Rotazione: {selected.rotation ?? 0}Â°
+                      Rotazione: {selected.rotation ?? 0}°
                     </span>
                     <input
                       type="range"
@@ -3580,7 +3578,7 @@ export default function Home() {
 
                       <label className="block text-sm">
                         <span className="mb-1 block text-slate-400">
-                          VisibilitÃ 
+                          Visibilità
                         </span>
                         <select
                           value={selected.feedback.visibility}
@@ -4016,7 +4014,7 @@ export default function Home() {
                     onClick={() => moveSelected("up")}
                     className="rounded-lg bg-slate-700 px-2 py-2 text-sm hover:bg-slate-600"
                   >
-                    â†‘ Su
+                    ↑ Su
                   </button>
 
                   <button
@@ -4024,7 +4022,7 @@ export default function Home() {
                     onClick={() => moveSelected("down")}
                     className="rounded-lg bg-slate-700 px-2 py-2 text-sm hover:bg-slate-600"
                   >
-                    â†“ GiÃ¹
+                    ↓ Giù
                   </button>
 
                   <button
