@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { nanoid } from "nanoid";
 
-type ElementType = "heading" | "text" | "button" | "input" | "container" | "image";
+type ElementType = "heading" | "text" | "button" | "input" | "container" | "image" | "shape";
 type DeviceMode = "desktop" | "tablet" | "mobile";
 
 type CanvasElement = {
@@ -60,6 +60,15 @@ type CanvasElement = {
   textDecoration?: "none" | "underline";
   letterSpacing?: number;
   lineHeight?: number;
+  shapeType?: "rectangle" | "ellipse" | "line";
+  shapeThickness?: number;
+  backgroundImage?: string;
+  backgroundSize?: "cover" | "contain" | "stretch";
+  backgroundPosition?: "center" | "top" | "bottom" | "left" | "right";
+  isCanvasBackground?: boolean;
+  buttonAction?: "none" | "link" | "alert" | "email" | "phone";
+  actionValue?: string;
+  openNewTab?: boolean;
 };
 
 const palette: Array<{
@@ -73,6 +82,7 @@ const palette: Array<{
   { type: "input", label: "Campo input", description: "Campo compilabile" },
   { type: "container", label: "Contenitore", description: "Blocco grafico" },
   { type: "image", label: "Immagine", description: "Foto o grafica" },
+  { type: "shape", label: "Forma", description: "Rettangolo, ellisse o linea" },
 ];
 
 const defaults: Record<ElementType, Omit<CanvasElement, "id" | "type">> = {
@@ -139,6 +149,34 @@ const defaults: Record<ElementType, Omit<CanvasElement, "id" | "type">> = {
     objectFit: "cover",
     borderRadius: 12,
     opacity: 100,
+  },
+  shape: {
+    text: "Forma",
+    color: "#ffffff",
+    background: "#2563eb",
+    fontSize: 16,
+    width: 100,
+    alignment: "center",
+    positionMode: "grid",
+    x: 40,
+    y: 40,
+    widthPx: 320,
+    heightPx: 160,
+    gridColumnStart: 0,
+    gridColumnSpan: 6,
+    gridRowStart: 0,
+    gridRowSpan: 4,
+    visible: true,
+    locked: false,
+    zIndex: 1,
+    borderRadius: 0,
+    opacity: 100,
+    borderWidth: 0,
+    borderColor: "#0f172a",
+    rotation: 0,
+    shadow: "none",
+    shapeType: "rectangle",
+    shapeThickness: 4,
   },
 };
 
@@ -227,7 +265,7 @@ function CanvasItem({
         className={`h-full w-full cursor-pointer rounded-lg px-5 py-3 font-semibold shadow-sm ${commonClass}`}
         style={{
           color: element.color,
-          background: element.background,
+          background: element.backgroundImage ? "transparent" : element.background,
           fontSize: element.fontSize,
           ...typographyStyle,
         }}
@@ -246,9 +284,54 @@ function CanvasItem({
         className={`h-full w-full cursor-pointer rounded-lg border border-slate-300 px-4 py-3 ${commonClass}`}
         style={{
           color: element.color,
-          background: element.background,
+          background: element.backgroundImage ? "transparent" : element.background,
           fontSize: element.fontSize,
           ...typographyStyle,
+        }}
+      />
+    );
+  }
+
+  if (element.type === "shape") {
+    if (element.shapeType === "line") {
+      return (
+        <div
+          onClick={(event) =>
+            onSelect(
+              event.shiftKey ||
+                event.ctrlKey ||
+                event.metaKey,
+            )
+          }
+          className={`flex h-full w-full cursor-pointer items-center ${commonClass}`}
+        >
+          <div
+            className="w-full"
+            style={{
+              height: element.shapeThickness ?? 4,
+              background: element.backgroundImage ? "transparent" : element.background,
+            }}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div
+        onClick={(event) =>
+          onSelect(
+            event.shiftKey ||
+              event.ctrlKey ||
+              event.metaKey,
+          )
+        }
+        className={`h-full w-full cursor-pointer ${commonClass}`}
+        style={{
+          background: element.backgroundImage ? "transparent" : element.background,
+          borderRadius:
+            element.shapeType === "ellipse"
+              ? "50%"
+              : element.borderRadius ?? 0,
         }}
       />
     );
@@ -305,7 +388,7 @@ function CanvasItem({
       className={`h-full min-h-0 w-full cursor-pointer rounded-xl border border-dashed border-slate-400 p-6 ${commonClass}`}
       style={{
         color: element.color,
-        background: element.background,
+        background: element.backgroundImage ? "transparent" : element.background,
         fontSize: element.fontSize,
       }}
     >
@@ -336,9 +419,11 @@ function generateCode(elements: CanvasElement[]) {
           : `span ${gridRowSpan}`;
 
       const layoutStyle =
-        element.positionMode === "absolute"
-          ? `position: "absolute", left: ${element.x ?? 0}, top: ${element.y ?? 0}, width: ${element.widthPx ?? 320}, height: ${element.heightPx ?? 120}`
-          : `gridColumn: "${gridColumn}", gridRow: "${gridRow}"`;
+        element.isCanvasBackground
+          ? `position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 0`
+          : element.positionMode === "absolute"
+            ? `position: "absolute", left: ${element.x ?? 0}, top: ${element.y ?? 0}, width: ${element.widthPx ?? 320}, height: ${element.heightPx ?? 120}, zIndex: ${Math.max(1, element.zIndex ?? 1)}`
+            : `position: "relative", gridColumn: "${gridColumn}", gridRow: "${gridRow}", zIndex: ${Math.max(1, element.zIndex ?? 1)}`;
 
       const shadowValue =
         element.shadow === "small"
@@ -349,8 +434,12 @@ function generateCode(elements: CanvasElement[]) {
               ? "0 18px 50px rgba(15, 23, 42, 0.32)"
               : "none";
 
+      const backgroundImageValue = element.backgroundImage
+        ? `url(${element.backgroundImage})`
+        : "none";
+
       const appearanceStyle =
-        `border: "${element.borderWidth ?? 0}px solid ${element.borderColor ?? "#0f172a"}", borderRadius: ${element.borderRadius ?? 0}, transform: "rotate(${element.rotation ?? 0}deg)", boxShadow: "${shadowValue}", fontFamily: ${JSON.stringify(element.fontFamily ?? "Arial, Helvetica, sans-serif")}, fontWeight: ${element.fontWeight ?? 400}, fontStyle: "${element.fontStyle ?? "normal"}", textDecoration: "${element.textDecoration ?? "none"}", letterSpacing: ${element.letterSpacing ?? 0}, lineHeight: ${element.lineHeight ?? 1.2}`;
+        `border: "${element.borderWidth ?? 0}px solid ${element.borderColor ?? "#0f172a"}", borderRadius: ${element.borderRadius ?? 0}, transform: "rotate(${element.rotation ?? 0}deg)", boxShadow: "${shadowValue}", fontFamily: ${JSON.stringify(element.fontFamily ?? "Arial, Helvetica, sans-serif")}, fontWeight: ${element.fontWeight ?? 400}, fontStyle: "${element.fontStyle ?? "normal"}", textDecoration: "${element.textDecoration ?? "none"}", letterSpacing: ${element.letterSpacing ?? 0}, lineHeight: ${element.lineHeight ?? 1.2}, backgroundImage: ${JSON.stringify(backgroundImageValue)}, backgroundSize: "${element.backgroundSize === "stretch" ? "100% 100%" : element.backgroundSize ?? "cover"}", backgroundPosition: "${element.backgroundPosition ?? "center"}", backgroundRepeat: "no-repeat"`;
 
       switch (element.type) {
         case "heading":
@@ -359,11 +448,60 @@ function generateCode(elements: CanvasElement[]) {
         case "text":
           return `      <p style={{ color: "${element.color}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}" }}>${element.text}</p>`;
 
-        case "button":
-          return `      <button type="button" style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", padding: "12px 20px", borderRadius: 8 }}>${element.text}</button>`;
+        case "button": {
+          const actionValue = JSON.stringify(
+            element.actionValue ?? "",
+          );
+
+          const buttonStyle =
+            `${layoutStyle}, ${appearanceStyle}, color: "${element.color}", backgroundColor: "${element.background}", fontSize: ${element.fontSize}, padding: "12px 20px", display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none"`;
+
+          if (element.buttonAction === "link") {
+            const target = element.openNewTab
+              ? ' target="_blank" rel="noreferrer"'
+              : "";
+
+            return `      <a href=${actionValue}${target} style={{ ${buttonStyle} }}>${element.text}</a>`;
+          }
+
+          if (element.buttonAction === "email") {
+            const emailAddress = JSON.stringify(
+              `mailto:${element.actionValue ?? ""}`,
+            );
+
+            return `      <a href=${emailAddress} style={{ ${buttonStyle} }}>${element.text}</a>`;
+          }
+
+          if (element.buttonAction === "phone") {
+            const phoneNumber = JSON.stringify(
+              `tel:${element.actionValue ?? ""}`,
+            );
+
+            return `      <a href=${phoneNumber} style={{ ${buttonStyle} }}>${element.text}</a>`;
+          }
+
+          if (element.buttonAction === "alert") {
+            return `      <button type="button" onClick={() => window.alert(${actionValue})} style={{ ${buttonStyle} }}>${element.text}</button>`;
+          }
+
+          return `      <button type="button" style={{ ${buttonStyle} }}>${element.text}</button>`;
+        }
 
         case "input":
-          return `      <input placeholder=${text} style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", padding: 12, border: "1px solid #cbd5e1", borderRadius: 8 }} />`;
+          return `      <input placeholder=${text} style={{ color: "${element.color}", backgroundColor: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", padding: 12, border: "1px solid #cbd5e1", borderRadius: 8 }} />`;
+
+        case "shape": {
+          if (element.shapeType === "line") {
+            return `      <div style={{ ${layoutStyle}, ${appearanceStyle}, display: "flex", alignItems: "center" }}><div style={{ width: "100%", height: ${element.shapeThickness ?? 4}, backgroundColor: "${element.background}" }} /></div>`;
+          }
+
+          const shapeRadius =
+            element.shapeType === "ellipse"
+              ? "50%"
+              : `${element.borderRadius ?? 0}px`;
+
+          return `      <div style={{ ${layoutStyle}, ${appearanceStyle}, backgroundColor: "${element.background}", borderRadius: "${shapeRadius}" }} />`;
+        }
 
         case "image": {
           const source = JSON.stringify(
@@ -374,12 +512,14 @@ function generateCode(elements: CanvasElement[]) {
         }
 
         case "container":
-          return `      <div style={{ color: "${element.color}", background: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", minHeight: 128, padding: 24, borderRadius: 12 }}>${element.text}</div>`;
+          return `      <div style={{ color: "${element.color}", backgroundColor: "${element.background}", fontSize: ${element.fontSize}, ${layoutStyle}, ${appearanceStyle}, textAlign: "${element.alignment ?? "left"}", minHeight: 128, padding: 24, borderRadius: 12 }}>${element.text}</div>`;
       }
     })
     .join("\n");
 
-  return `export default function GeneratedPage() {
+  return `"use client";
+
+export default function GeneratedPage() {
   return (
     <main style={{
       minHeight: "100vh",
@@ -551,15 +691,23 @@ export default function Home() {
 
   function moveLayer(
     id: string,
-    direction: "up" | "down",
+    direction: "up" | "down" | "front" | "back",
   ) {
     setElements((current) => {
       const index = current.findIndex(
         (element) => element.id === id,
       );
 
-      const targetIndex =
+      let targetIndex =
         direction === "up" ? index + 1 : index - 1;
+
+      if (direction === "front") {
+        targetIndex = current.length - 1;
+      }
+
+      if (direction === "back") {
+        targetIndex = 0;
+      }
 
       if (
         index < 0 ||
@@ -933,6 +1081,88 @@ export default function Home() {
     );
   }
 
+  function setCanvasBackground(id: string) {
+    setElements((current) =>
+      current.map((element) => {
+        if (element.id === id && element.type === "image") {
+          return {
+            ...element,
+            isCanvasBackground: true,
+            positionMode: "absolute",
+            x: 0,
+            y: 0,
+            zIndex: 0,
+            locked: true,
+            visible: true,
+            objectFit: "cover",
+          };
+        }
+
+        if (element.isCanvasBackground) {
+          return {
+            ...element,
+            isCanvasBackground: false,
+            locked: false,
+            zIndex: Math.max(1, element.zIndex ?? 1),
+          };
+        }
+
+        return {
+          ...element,
+          zIndex: Math.max(1, element.zIndex ?? 1),
+        };
+      }),
+    );
+  }
+
+  function removeCanvasBackground(id: string) {
+    setElements((current) =>
+      current.map((element) =>
+        element.id === id
+          ? {
+              ...element,
+              isCanvasBackground: false,
+              positionMode: "grid",
+              locked: false,
+              zIndex: 1,
+              gridColumnStart: 1,
+              gridColumnSpan: 12,
+              gridRowStart: 1,
+              gridRowSpan: 6,
+            }
+          : element,
+      ),
+    );
+  }
+
+  function handleBackgroundImageUpload(file: File) {
+    const maximumSize = 2 * 1024 * 1024;
+
+    if (file.size > maximumSize) {
+      window.alert(
+        "L'immagine è troppo grande. Dimensione massima: 2 MB.",
+      );
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      window.alert("Il file selezionato non è un'immagine.");
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        updateSelected({
+          backgroundImage: reader.result,
+        });
+      }
+    };
+
+    reader.readAsDataURL(file);
+  }
+
   function handleImageUpload(file: File) {
     const maximumSize = 2 * 1024 * 1024;
 
@@ -1176,6 +1406,40 @@ export default function Home() {
     }
   }
 
+  function previewButtonAction(element: CanvasElement) {
+    const action = element.buttonAction ?? "none";
+    const value = element.actionValue ?? "";
+
+    if (action === "none") {
+      window.alert("Nessuna azione configurata.");
+      return;
+    }
+
+    if (!value.trim()) {
+      window.alert("Inserisci un valore per questa azione.");
+      return;
+    }
+
+    if (action === "alert") {
+      window.alert(value);
+      return;
+    }
+
+    if (action === "link") {
+      window.open(value, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    if (action === "email") {
+      window.alert(`Aprirà il programma email: ${value}`);
+      return;
+    }
+
+    if (action === "phone") {
+      window.alert(`Avvierà una chiamata verso: ${value}`);
+    }
+  }
+
   async function copyCode() {
     await navigator.clipboard.writeText(generatedCode);
     setCopied(true);
@@ -1324,10 +1588,12 @@ export default function Home() {
                       }
                       className="mb-2 w-full truncate text-left text-sm"
                     >
-                      {element.text || element.type}
+                                            {element.isCanvasBackground
+                        ? "Sfondo canvas"
+                        : element.text || element.type}
                     </button>
 
-                    <div className="grid grid-cols-4 gap-1">
+                    <div className="grid grid-cols-6 gap-1">
                       <button
                         type="button"
                         onClick={() =>
@@ -1370,6 +1636,28 @@ export default function Home() {
                         title="Porta indietro"
                       >
                         ↓
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          moveLayer(element.id, "front")
+                        }
+                        className="rounded bg-blue-800 p-1 text-xs hover:bg-blue-700"
+                        title="Porta in primo piano"
+                      >
+                        ⇈
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          moveLayer(element.id, "back")
+                        }
+                        className="rounded bg-blue-800 p-1 text-xs hover:bg-blue-700"
+                        title="Porta sullo sfondo"
+                      >
+                        ⇊
                       </button>
                     </div>
                   </div>
@@ -1467,27 +1755,39 @@ export default function Home() {
                     display:
                       element.visible === false ? "none" : undefined,
                     pointerEvents:
-                      element.locked ? "none" : undefined,
+                      element.isCanvasBackground || element.locked
+                        ? "none"
+                        : undefined,
                     position:
-                      element.positionMode === "absolute"
+                      element.isCanvasBackground
                         ? "absolute"
-                        : "relative",
+                        : element.positionMode === "absolute"
+                          ? "absolute"
+                          : "relative",
                     left:
-                      element.positionMode === "absolute"
-                        ? element.x ?? 0
-                        : undefined,
+                      element.isCanvasBackground
+                        ? 0
+                        : element.positionMode === "absolute"
+                          ? element.x ?? 0
+                          : undefined,
                     top:
-                      element.positionMode === "absolute"
-                        ? element.y ?? 0
-                        : undefined,
+                      element.isCanvasBackground
+                        ? 0
+                        : element.positionMode === "absolute"
+                          ? element.y ?? 0
+                          : undefined,
                     width:
-                      element.positionMode === "absolute"
-                        ? element.widthPx ?? 320
-                        : undefined,
+                      element.isCanvasBackground
+                        ? "100%"
+                        : element.positionMode === "absolute"
+                          ? element.widthPx ?? 320
+                          : undefined,
                     height:
-                      element.positionMode === "absolute"
-                        ? element.heightPx ?? 120
-                        : undefined,
+                      element.isCanvasBackground
+                        ? "100%"
+                        : element.positionMode === "absolute"
+                          ? element.heightPx ?? 120
+                          : undefined,
                     gridColumn:
                       element.positionMode === "absolute"
                         ? undefined
@@ -1506,6 +1806,16 @@ export default function Home() {
                           : `span ${element.gridRowSpan ?? 3}`,
                     textAlign: element.alignment ?? "left",
                     boxSizing: "border-box",
+                    backgroundImage: element.backgroundImage
+                      ? `url(${element.backgroundImage})`
+                      : undefined,
+                    backgroundSize:
+                      element.backgroundSize === "stretch"
+                        ? "100% 100%"
+                        : element.backgroundSize ?? "cover",
+                    backgroundPosition:
+                      element.backgroundPosition ?? "center",
+                    backgroundRepeat: "no-repeat",
                     borderStyle:
                       (element.borderWidth ?? 0) > 0
                         ? "solid"
@@ -1513,7 +1823,11 @@ export default function Home() {
                     borderWidth: element.borderWidth ?? 0,
                     borderColor:
                       element.borderColor ?? "#0f172a",
-                    borderRadius: element.borderRadius ?? 0,
+                                        borderRadius:
+                      element.type === "shape" &&
+                      element.shapeType === "ellipse"
+                        ? "50%"
+                        : element.borderRadius ?? 0,
                     opacity: (element.opacity ?? 100) / 100,
                     transform: `rotate(${element.rotation ?? 0}deg)`,
                     boxShadow:
@@ -1524,12 +1838,16 @@ export default function Home() {
                           : element.shadow === "large"
                             ? "0 18px 50px rgba(15, 23, 42, 0.32)"
                             : "none",
-                    zIndex:
-                      element.positionMode === "absolute"
-                        ? element.zIndex ?? 1
-                        : undefined,
+                    zIndex: element.isCanvasBackground
+                      ? 0
+                      : Math.max(1, element.zIndex ?? 1),
                     overflow:
-                      element.type === "image"
+                      Boolean(element.backgroundImage) ||
+                      element.type === "image" ||
+                      (
+                        element.type === "shape" &&
+                        element.shapeType === "ellipse"
+                      )
                         ? "hidden"
                         : element.positionMode === "absolute"
                           ? "auto"
@@ -1625,6 +1943,77 @@ export default function Home() {
 
             {selected && (
               <div className="space-y-5">
+                {selected.type === "shape" && (
+                  <div className="space-y-4 rounded-xl border border-cyan-700 bg-cyan-950/20 p-4">
+                    <h3 className="font-semibold text-white">
+                      Proprietà forma
+                    </h3>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {(
+                        [
+                          ["rectangle", "Rettangolo"],
+                          ["ellipse", "Ellisse"],
+                          ["line", "Linea"],
+                        ] as const
+                      ).map(([shapeType, label]) => (
+                        <button
+                          key={shapeType}
+                          type="button"
+                          onClick={() =>
+                            updateSelected({ shapeType })
+                          }
+                          className={`rounded-lg px-2 py-2 text-xs ${
+                            selected.shapeType === shapeType
+                              ? "bg-cyan-600"
+                              : "bg-slate-700 hover:bg-slate-600"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <label className="flex items-center justify-between text-sm">
+                      <span className="text-slate-400">
+                        Colore riempimento
+                      </span>
+                      <input
+                        type="color"
+                        value={selected.background}
+                        onChange={(event) =>
+                          updateSelected({
+                            background: event.target.value,
+                          })
+                        }
+                        className="h-10 w-16"
+                      />
+                    </label>
+
+                    {selected.shapeType === "line" && (
+                      <label className="block text-sm">
+                        <span className="mb-1 block text-slate-400">
+                          Spessore: {selected.shapeThickness ?? 4}px
+                        </span>
+                        <input
+                          type="range"
+                          min="1"
+                          max="50"
+                          value={selected.shapeThickness ?? 4}
+                          onChange={(event) =>
+                            updateSelected({
+                              shapeThickness: Number(
+                                event.target.value,
+                              ),
+                            })
+                          }
+                          className="w-full"
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
+
                 {selected.type === "image" && (
                   <div className="space-y-4 rounded-xl border border-purple-700 bg-purple-950/30 p-4">
                     <h3 className="font-semibold text-white">
@@ -1728,6 +2117,29 @@ export default function Home() {
                       />
                     </label>
 
+                    {selected.isCanvasBackground ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeCanvasBackground(selected.id)
+                        }
+                        className="w-full rounded-lg bg-amber-700 px-3 py-2 text-sm font-semibold hover:bg-amber-600"
+                      >
+                        Rimuovi come sfondo canvas
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={!selected.imageSrc}
+                        onClick={() =>
+                          setCanvasBackground(selected.id)
+                        }
+                        className="w-full rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Usa come sfondo canvas
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() =>
@@ -1736,6 +2148,216 @@ export default function Home() {
                       className="w-full rounded-lg bg-red-700 px-3 py-2 text-sm hover:bg-red-600"
                     >
                       Rimuovi immagine
+                    </button>
+                  </div>
+                )}
+
+                {selected.type === "button" && (
+                  <div className="space-y-4 rounded-xl border border-indigo-700 bg-indigo-950/30 p-4">
+                    <h3 className="font-semibold text-white">
+                      Azione pulsante
+                    </h3>
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        Tipo di azione
+                      </span>
+                      <select
+                        value={selected.buttonAction ?? "none"}
+                        onChange={(event) =>
+                          updateSelected({
+                            buttonAction: event.target.value as
+                              | "none"
+                              | "link"
+                              | "alert"
+                              | "email"
+                              | "phone",
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                      >
+                        <option value="none">Nessuna</option>
+                        <option value="link">Apri collegamento</option>
+                        <option value="alert">Mostra messaggio</option>
+                        <option value="email">Invia email</option>
+                        <option value="phone">Chiama numero</option>
+                      </select>
+                    </label>
+
+                    {selected.buttonAction !== "none" && (
+                      <label className="block text-sm">
+                        <span className="mb-1 block text-slate-400">
+                          {selected.buttonAction === "link"
+                            ? "Indirizzo URL"
+                            : selected.buttonAction === "email"
+                              ? "Indirizzo email"
+                              : selected.buttonAction === "phone"
+                                ? "Numero telefonico"
+                                : "Messaggio"}
+                        </span>
+
+                        <input
+                          type={
+                            selected.buttonAction === "email"
+                              ? "email"
+                              : selected.buttonAction === "link"
+                                ? "url"
+                                : "text"
+                          }
+                          value={selected.actionValue ?? ""}
+                          onChange={(event) =>
+                            updateSelected({
+                              actionValue: event.target.value,
+                            })
+                          }
+                          placeholder={
+                            selected.buttonAction === "link"
+                              ? "https://..."
+                              : selected.buttonAction === "email"
+                                ? "nome@dominio.it"
+                                : selected.buttonAction === "phone"
+                                  ? "+39..."
+                                  : "Messaggio da mostrare"
+                          }
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                        />
+                      </label>
+                    )}
+
+                    {selected.buttonAction === "link" && (
+                      <label className="flex items-center gap-3 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selected.openNewTab ?? true}
+                          onChange={(event) =>
+                            updateSelected({
+                              openNewTab: event.target.checked,
+                            })
+                          }
+                          className="h-4 w-4"
+                        />
+                        Apri in una nuova scheda
+                      </label>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        previewButtonAction(selected)
+                      }
+                      className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold hover:bg-indigo-500"
+                    >
+                      Prova azione
+                    </button>
+                  </div>
+                )}
+
+                {selected.type !== "image" && selected.type !== "shape" && (
+                  <div className="space-y-4 rounded-xl border border-pink-700 bg-pink-950/20 p-4">
+                    <h3 className="font-semibold text-white">
+                      Immagine di sfondo
+                    </h3>
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        URL
+                      </span>
+                      <input
+                        type="text"
+                        value={selected.backgroundImage ?? ""}
+                        onChange={(event) =>
+                          updateSelected({
+                            backgroundImage: event.target.value,
+                          })
+                        }
+                        placeholder="https://..."
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                      />
+                    </label>
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-slate-400">
+                        Carica dal computer
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+
+                          if (file) {
+                            handleBackgroundImageUpload(file);
+                          }
+
+                          event.target.value = "";
+                        }}
+                        className="block w-full text-xs text-slate-400"
+                      />
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="text-sm">
+                        <span className="mb-1 block text-slate-400">
+                          Adattamento
+                        </span>
+                        <select
+                          value={selected.backgroundSize ?? "cover"}
+                          onChange={(event) =>
+                            updateSelected({
+                              backgroundSize: event.target.value as
+                                | "cover"
+                                | "contain"
+                                | "stretch",
+                            })
+                          }
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                        >
+                          <option value="cover">Riempi</option>
+                          <option value="contain">Contieni</option>
+                          <option value="stretch">Allunga</option>
+                        </select>
+                      </label>
+
+                      <label className="text-sm">
+                        <span className="mb-1 block text-slate-400">
+                          Posizione
+                        </span>
+                        <select
+                          value={
+                            selected.backgroundPosition ?? "center"
+                          }
+                          onChange={(event) =>
+                            updateSelected({
+                              backgroundPosition:
+                                event.target.value as
+                                  | "center"
+                                  | "top"
+                                  | "bottom"
+                                  | "left"
+                                  | "right",
+                            })
+                          }
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                        >
+                          <option value="center">Centro</option>
+                          <option value="top">Alto</option>
+                          <option value="bottom">Basso</option>
+                          <option value="left">Sinistra</option>
+                          <option value="right">Destra</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateSelected({
+                          backgroundImage: "",
+                        })
+                      }
+                      className="w-full rounded-lg bg-red-700 px-3 py-2 text-sm hover:bg-red-600"
+                    >
+                      Rimuovi sfondo
                     </button>
                   </div>
                 )}
@@ -2513,6 +3135,10 @@ export default function Home() {
     </DndContext>
   );
 }
+
+
+
+
 
 
 
