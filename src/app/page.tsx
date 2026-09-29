@@ -90,12 +90,35 @@ type PluginActionManifest = {
   fields: PluginField[];
 };
 
+type PluginVariableManifest = {
+  id: string;
+  name: string;
+  initialValue?: string | number | boolean;
+};
+
 type PluginManifest = {
   id: string;
   name: string;
   version: string;
   description: string;
   actions: PluginActionManifest[];
+  variables: PluginVariableManifest[];
+};
+
+type ElementFeedback = {
+  enabled: boolean;
+  pluginId: string;
+  variableId: string;
+  operator:
+    | "equals"
+    | "notEquals"
+    | "contains"
+    | "truthy";
+  expectedValue: string;
+  activeBackground: string;
+  activeColor: string;
+  activeText: string;
+  visibility: "unchanged" | "show" | "hide";
 };
 
 const PLUGIN_GATEWAY_URL = "http://localhost:3210";
@@ -191,6 +214,7 @@ type CanvasElement = {
   actionValue?: string;
   openNewTab?: boolean;
   actions?: ElementAction[];
+  feedback?: ElementFeedback;
 };
 
 const palette: Array<{
@@ -325,6 +349,45 @@ function getElementActions(
   }
 
   return [];
+}
+
+function applyElementFeedback(
+  element: CanvasElement,
+  variables: Record<string, unknown>,
+): CanvasElement {
+  const feedback = element.feedback;
+
+  if (!feedback?.enabled) return element;
+
+  const key = `${feedback.pluginId}:${feedback.variableId}`;
+  const rawValue = variables[key];
+  const currentValue = String(rawValue ?? "");
+  const expectedValue = feedback.expectedValue ?? "";
+
+  const matches =
+    feedback.operator === "equals"
+      ? currentValue === expectedValue
+      : feedback.operator === "notEquals"
+        ? currentValue !== expectedValue
+        : feedback.operator === "contains"
+          ? currentValue.includes(expectedValue)
+          : Boolean(rawValue);
+
+  if (!matches) return element;
+
+  return {
+    ...element,
+    background:
+      feedback.activeBackground || element.background,
+    color: feedback.activeColor || element.color,
+    text: feedback.activeText || element.text,
+    visible:
+      feedback.visibility === "hide"
+        ? false
+        : feedback.visibility === "show"
+          ? true
+          : element.visible,
+  };
 }
 
 function PaletteItem({
@@ -635,6 +698,17 @@ function generateCode(elements: CanvasElement[]) {
     })
     .join("\n");
 
+  const feedbackConfig = elements
+    .filter((element) => element.feedback?.enabled)
+    .map((element) => ({
+      elementId: `element-${element.id}`,
+      feedback: element.feedback,
+      baseBackground: element.background,
+      baseColor: element.color,
+      baseText: element.text,
+      baseVisible: element.visible !== false,
+    }));
+
   return `"use client";
 
 type GeneratedAction = {
@@ -770,6 +844,24 @@ async function runActions(actions: GeneratedAction[]) {
 }
 
 export default function GeneratedPage() {
+  useEffect(() => {
+    const socket = new WebSocket("ws://localhost:3210");
+
+    socket.onmessage = (message) => {
+      try {
+        const event = JSON.parse(String(message.data));
+
+        if (event.type === "variable-update") {
+          applyGeneratedFeedback(event);
+        }
+      } catch {
+        // Ignora messaggi non validi.
+      }
+    };
+
+    return () => socket.close();
+  }, []);
+
   return (
     <main style={{
       minHeight: "100vh",
@@ -806,6 +898,10 @@ export default function Home() {
     useState<PluginManifest[]>([]);
   const [pluginGatewayOnline, setPluginGatewayOnline] =
     useState(false);
+  const [pluginSocketOnline, setPluginSocketOnline] =
+    useState(false);
+  const [pluginVariables, setPluginVariables] =
+    useState<Record<string, unknown>>({});
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -819,6 +915,14 @@ export default function Home() {
 
   const selected = elements.find((element) => element.id === selectedId);
   const generatedCode = useMemo(() => generateCode(elements), [elements]);
+
+  const renderedElements = useMemo(
+    () =>
+      elements.map((element) =>
+        applyElementFeedback(element, pluginVariables),
+      ),
+    [elements, pluginVariables],
+  );
 
   useEffect(() => {
     let active = true;
@@ -857,6 +961,95 @@ export default function Home() {
     return () => {
       active = false;
       window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let socket: WebSocket | null = null;
+    let reconnectTimer: number | undefined;
+    let active = true;
+
+    async function loadVariables() {
+      try {
+        const response = await fetch(
+          `${PLUGIN_GATEWAY_URL}/api/variables`,
+        );
+
+        if (!response.ok) return;
+
+        const values =
+          (await response.json()) as Record<string, unknown>;
+
+        if (active) {
+          setPluginVariables(values);
+        }
+      } catch {
+        // Il WebSocket tenterà nuovamente la connessione.
+      }
+    }
+
+    function connect() {
+      if (!active) return;
+
+      socket = new WebSocket("ws://localhost:3210");
+
+      socket.onopen = () => {
+        if (active) {
+          setPluginSocketOnline(true);
+        }
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(
+            String(event.data),
+          ) as {
+            type?: string;
+            pluginId?: string;
+            variableId?: string;
+            value?: unknown;
+          };
+
+          if (
+            message.type === "variable-update" &&
+            message.pluginId &&
+            message.variableId
+          ) {
+            const key =
+              `${message.pluginId}:${message.variableId}`;
+
+            setPluginVariables((current) => ({
+              ...current,
+              [key]: message.value,
+            }));
+          }
+        } catch {
+          // Ignora messaggi non JSON.
+        }
+      };
+
+      socket.onclose = () => {
+        if (!active) return;
+
+        setPluginSocketOnline(false);
+        reconnectTimer = window.setTimeout(
+          connect,
+          2000,
+        );
+      };
+
+      socket.onerror = () => {
+        socket?.close();
+      };
+    }
+
+    void loadVariables();
+    connect();
+
+    return () => {
+      active = false;
+      window.clearTimeout(reconnectTimer);
+      socket?.close();
     };
   }, []);
 
@@ -1482,6 +1675,28 @@ export default function Home() {
     };
 
     reader.readAsDataURL(file);
+  }
+
+  function updateElementFeedback(
+    changes: Partial<ElementFeedback>,
+  ) {
+    if (!selected) return;
+
+    updateSelected({
+      feedback: {
+        enabled: true,
+        pluginId: "",
+        variableId: "",
+        operator: "equals",
+        expectedValue: "",
+        activeBackground: "#16a34a",
+        activeColor: "#ffffff",
+        activeText: "",
+        visibility: "unchanged",
+        ...(selected.feedback ?? {}),
+        ...changes,
+      },
+    });
   }
 
   function updateSelected(changes: Partial<CanvasElement>) {
@@ -2285,7 +2500,7 @@ export default function Home() {
                 </div>
               )}
 
-              {elements.map((element) => (
+              {renderedElements.map((element) => (
                 <div
                   key={element.id}
                   id={`element-${element.id}`}
@@ -2530,6 +2745,35 @@ export default function Home() {
 
             {selected && (
               <div className="space-y-5">
+                <div className="flex items-center justify-between rounded-xl border border-green-700 bg-green-950/30 p-3">
+                  <div>
+                    <p className="font-semibold text-white">
+                      Feedback plugin
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Configura colori e testo dinamici
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateElementFeedback({
+                        enabled:
+                          !(selected.feedback?.enabled ?? false),
+                      })
+                    }
+                    className={`rounded-lg px-3 py-2 text-sm font-semibold ${
+                      selected.feedback?.enabled
+                        ? "bg-green-600"
+                        : "bg-slate-700"
+                    }`}
+                  >
+                    {selected.feedback?.enabled
+                      ? "Attivo"
+                      : "Attiva"}
+                  </button>
+                </div>
                 {selected.type === "shape" && (
                   <div className="space-y-4 rounded-xl border border-cyan-700 bg-cyan-950/20 p-4">
                     <h3 className="font-semibold text-white">
@@ -3083,7 +3327,7 @@ export default function Home() {
                                   Seleziona elemento
                                 </option>
 
-                                {elements.map((element) => (
+                                {renderedElements.map((element) => (
                                   <option
                                     key={element.id}
                                     value={`element-${element.id}`}
@@ -3594,6 +3838,239 @@ export default function Home() {
                   </label>
                 </div>
 
+                <div className="space-y-4 rounded-xl border border-green-700 bg-green-950/20 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-white">
+                        Feedback plugin
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        WebSocket:{" "}
+                        {pluginSocketOnline
+                          ? "connesso"
+                          : "disconnesso"}
+                      </p>
+                    </div>
+
+                    <input
+                      type="checkbox"
+                      checked={selected.feedback?.enabled ?? false}
+                      onChange={(event) =>
+                        updateElementFeedback({
+                          enabled: event.target.checked,
+                        })
+                      }
+                      className="h-5 w-5"
+                    />
+                  </div>
+
+                  {selected.feedback?.enabled && (
+                    <>
+                      <label className="block text-sm">
+                        <span className="mb-1 block text-slate-400">
+                          Plugin
+                        </span>
+                        <select
+                          value={selected.feedback.pluginId}
+                          onChange={(event) =>
+                            updateElementFeedback({
+                              pluginId: event.target.value,
+                              variableId: "",
+                            })
+                          }
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                        >
+                          <option value="">
+                            Seleziona plugin
+                          </option>
+
+                          {pluginCatalog.map((plugin) => (
+                            <option
+                              key={plugin.id}
+                              value={plugin.id}
+                            >
+                              {plugin.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="block text-sm">
+                        <span className="mb-1 block text-slate-400">
+                          Variabile
+                        </span>
+                        <select
+                          value={selected.feedback.variableId}
+                          onChange={(event) =>
+                            updateElementFeedback({
+                              variableId: event.target.value,
+                            })
+                          }
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                        >
+                          <option value="">
+                            Seleziona variabile
+                          </option>
+
+                          {pluginCatalog
+                            .find(
+                              (plugin) =>
+                                plugin.id ===
+                                selected.feedback?.pluginId,
+                            )
+                            ?.variables.map((variable) => (
+                              <option
+                                key={variable.id}
+                                value={variable.id}
+                              >
+                                {variable.name}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+
+                      <div className="rounded-lg bg-slate-950 p-2 text-xs text-emerald-300">
+                        Valore attuale:{" "}
+                        {String(
+                          pluginVariables[
+                            `${selected.feedback.pluginId}:${selected.feedback.variableId}`
+                          ] ?? "",
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="text-sm">
+                          <span className="mb-1 block text-slate-400">
+                            Condizione
+                          </span>
+                          <select
+                            value={selected.feedback.operator}
+                            onChange={(event) =>
+                              updateElementFeedback({
+                                operator: event.target.value as
+                                  ElementFeedback["operator"],
+                              })
+                            }
+                            className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                          >
+                            <option value="equals">Uguale</option>
+                            <option value="notEquals">
+                              Diverso
+                            </option>
+                            <option value="contains">
+                              Contiene
+                            </option>
+                            <option value="truthy">
+                              Vero/attivo
+                            </option>
+                          </select>
+                        </label>
+
+                        <label className="text-sm">
+                          <span className="mb-1 block text-slate-400">
+                            Valore atteso
+                          </span>
+                          <input
+                            value={
+                              selected.feedback.expectedValue
+                            }
+                            disabled={
+                              selected.feedback.operator ===
+                              "truthy"
+                            }
+                            onChange={(event) =>
+                              updateElementFeedback({
+                                expectedValue:
+                                  event.target.value,
+                              })
+                            }
+                            className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2 disabled:opacity-40"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="text-sm">
+                          <span className="mb-1 block text-slate-400">
+                            Colore sfondo
+                          </span>
+                          <input
+                            type="color"
+                            value={
+                              selected.feedback
+                                .activeBackground
+                            }
+                            onChange={(event) =>
+                              updateElementFeedback({
+                                activeBackground:
+                                  event.target.value,
+                              })
+                            }
+                            className="h-10 w-full"
+                          />
+                        </label>
+
+                        <label className="text-sm">
+                          <span className="mb-1 block text-slate-400">
+                            Colore testo
+                          </span>
+                          <input
+                            type="color"
+                            value={
+                              selected.feedback.activeColor
+                            }
+                            onChange={(event) =>
+                              updateElementFeedback({
+                                activeColor:
+                                  event.target.value,
+                              })
+                            }
+                            className="h-10 w-full"
+                          />
+                        </label>
+                      </div>
+
+                      <label className="block text-sm">
+                        <span className="mb-1 block text-slate-400">
+                          Testo quando attivo
+                        </span>
+                        <input
+                          value={selected.feedback.activeText}
+                          onChange={(event) =>
+                            updateElementFeedback({
+                              activeText: event.target.value,
+                            })
+                          }
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                        />
+                      </label>
+
+                      <label className="block text-sm">
+                        <span className="mb-1 block text-slate-400">
+                          Visibilità
+                        </span>
+                        <select
+                          value={selected.feedback.visibility}
+                          onChange={(event) =>
+                            updateElementFeedback({
+                              visibility:
+                                event.target.value as
+                                  ElementFeedback["visibility"],
+                            })
+                          }
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                        >
+                          <option value="unchanged">
+                            Non modificare
+                          </option>
+                          <option value="show">Mostra</option>
+                          <option value="hide">Nascondi</option>
+                        </select>
+                      </label>
+                    </>
+                  )}
+                </div>
+
                 <div className="rounded-xl border border-blue-700 bg-blue-950/30 p-4">
                   <h3 className="mb-3 font-semibold text-white">
                     Dimensioni elemento
@@ -4090,6 +4567,8 @@ export default function Home() {
     </DndContext>
   );
 }
+
+
 
 
 
