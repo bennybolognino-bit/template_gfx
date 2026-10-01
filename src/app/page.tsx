@@ -51,6 +51,7 @@ import { EditorHeader } from "@/editor/components/EditorHeader";
 import { EditorCanvas } from "@/editor/components/EditorCanvas";
 import { FeedbackToggleCard } from "@/editor/components/FeedbackToggleCard";
 import { ShapeProperties } from "@/editor/components/ShapeProperties";
+import { ImageProperties } from "@/editor/components/ImageProperties";
 import { generateCode } from "@/editor/generator";
 export default function Home() {
   const [elements, setElements] = useState<CanvasElement[]>([]);
@@ -1750,143 +1751,13 @@ export default function Home() {
                   onUpdate={updateSelected}
                 />
 
-                {selected.type === "image" && (
-                  <div className="space-y-4 rounded-xl border border-purple-700 bg-purple-950/30 p-4">
-                    <h3 className="font-semibold text-white">
-                      Proprietà immagine
-                    </h3>
-
-                    <label className="block text-sm">
-                      <span className="mb-1 block text-slate-400">
-                        URL immagine
-                      </span>
-                      <input
-                        type="text"
-                        value={selected.imageSrc ?? ""}
-                        onChange={(event) =>
-                          updateSelected({
-                            imageSrc: event.target.value,
-                          })
-                        }
-                        placeholder="https://..."
-                        className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
-                      />
-                    </label>
-
-                    <label className="block text-sm">
-                      <span className="mb-1 block text-slate-400">
-                        Carica dal computer
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-
-                          if (file) {
-                            handleImageUpload(file);
-                          }
-
-                          event.target.value = "";
-                        }}
-                        className="block w-full text-xs text-slate-400"
-                      />
-                    </label>
-
-                    <label className="block text-sm">
-                      <span className="mb-1 block text-slate-400">
-                        Adattamento
-                      </span>
-                      <select
-                        value={selected.objectFit ?? "cover"}
-                        onChange={(event) =>
-                          updateSelected({
-                            objectFit: event.target.value as
-                              | "cover"
-                              | "contain"
-                              | "fill",
-                          })
-                        }
-                        className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
-                      >
-                        <option value="cover">Riempi e ritaglia</option>
-                        <option value="contain">Mostra intera</option>
-                        <option value="fill">Adatta al riquadro</option>
-                      </select>
-                    </label>
-
-                    <label className="block text-sm">
-                      <span className="mb-1 block text-slate-400">
-                        Angoli: {selected.borderRadius ?? 12}px
-                      </span>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={selected.borderRadius ?? 12}
-                        onChange={(event) =>
-                          updateSelected({
-                            borderRadius: Number(
-                              event.target.value,
-                            ),
-                          })
-                        }
-                        className="w-full"
-                      />
-                    </label>
-
-                    <label className="block text-sm">
-                      <span className="mb-1 block text-slate-400">
-                        Opacità: {selected.opacity ?? 100}%
-                      </span>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={selected.opacity ?? 100}
-                        onChange={(event) =>
-                          updateSelected({
-                            opacity: Number(event.target.value),
-                          })
-                        }
-                        className="w-full"
-                      />
-                    </label>
-
-                    {selected.isCanvasBackground ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          removeCanvasBackground(selected.id)
-                        }
-                        className="w-full rounded-lg bg-amber-700 px-3 py-2 text-sm font-semibold hover:bg-amber-600"
-                      >
-                        Rimuovi come sfondo canvas
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={!selected.imageSrc}
-                        onClick={() =>
-                          setCanvasBackground(selected.id)
-                        }
-                        className="w-full rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        Usa come sfondo canvas
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateSelected({ imageSrc: "" })
-                      }
-                      className="w-full rounded-lg bg-red-700 px-3 py-2 text-sm hover:bg-red-600"
-                    >
-                      Rimuovi immagine
-                    </button>
-                  </div>
-                )}
+                <ImageProperties
+                  element={selected}
+                  onUpdate={updateSelected}
+                  onImageUpload={handleImageUpload}
+                  onSetCanvasBackground={setCanvasBackground}
+                  onRemoveCanvasBackground={removeCanvasBackground}
+                />
 
                 {selected.type === "button" && (
                   <div className="space-y-4 rounded-xl border border-indigo-700 bg-indigo-950/30 p-4">
