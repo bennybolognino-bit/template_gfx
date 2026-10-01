@@ -52,9 +52,20 @@ import { EditorCanvas } from "@/editor/components/EditorCanvas";
 import { FeedbackToggleCard } from "@/editor/components/FeedbackToggleCard";
 import { ShapeProperties } from "@/editor/components/ShapeProperties";
 import { ImageProperties } from "@/editor/components/ImageProperties";
+import { useHistoryState } from "@/editor/hooks/useHistoryState";
 import { generateCode } from "@/editor/generator";
 export default function Home() {
-  const [elements, setElements] = useState<CanvasElement[]>([]);
+  const [
+    elements,
+    setElements,
+    {
+      canUndo,
+      canRedo,
+      undo: undoElements,
+      redo: redoElements,
+      reset: resetElementsHistory,
+    },
+  ] = useHistoryState<CanvasElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeType, setActiveType] = useState<ElementType | null>(null);
@@ -88,10 +99,6 @@ export default function Home() {
   const [pluginVariables, setPluginVariables] =
     useState<Record<string, unknown>>({});
 
-  const historyRef = useRef<CanvasElement[][]>([[]]);
-  const historyIndexRef = useRef(0);
-  const historyInitializedRef = useRef(false);
-
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -112,6 +119,39 @@ export default function Home() {
       ),
     [elements, pluginVariables],
   );
+
+  useEffect(() => {
+    function handleHistoryShortcut(event: KeyboardEvent) {
+      const target = event.target;
+
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (!(event.ctrlKey || event.metaKey)) return;
+
+      const key = event.key.toLowerCase();
+
+      if (key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undoElements();
+      }
+
+      if (key === "y" || (key === "z" && event.shiftKey)) {
+        event.preventDefault();
+        redoElements();
+      }
+    }
+
+    window.addEventListener("keydown", handleHistoryShortcut);
+
+    return () =>
+      window.removeEventListener("keydown", handleHistoryShortcut);
+  }, [redoElements, undoElements]);
 
   useEffect(() => {
     let active = true;
@@ -1177,14 +1217,10 @@ export default function Home() {
 
     if (!confirmed) return;
 
-    setElements([]);
+    resetElementsHistory([]);
     setSelectedId(null);
     setSelectedIds([]);
     setProjectName("Nuovo progetto");
-
-    historyRef.current = [[]];
-    historyIndexRef.current = 0;
-    historyInitializedRef.current = true;
   }
 
   function exportProject() {
@@ -1248,17 +1284,11 @@ export default function Home() {
           id: element.id || nanoid(),
         }));
 
-      setElements(importedElements);
+      resetElementsHistory(importedElements);
       setProjectName(parsed.name || "Progetto importato");
       setSelectedId(null);
       setSelectedIds([]);
-
-      historyRef.current = [
-        importedElements.map((element) => ({ ...element })),
-      ];
-      historyIndexRef.current = 0;
-      historyInitializedRef.current = true;
-    } catch {
+} catch {
       window.alert(
         "Impossibile importare il progetto: file non valido.",
       );
@@ -1686,6 +1716,10 @@ export default function Home() {
           onImportProject={importProject}
           onExportProject={exportProject}
           onDeviceModeChange={setDeviceMode}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={undoElements}
+          onRedo={redoElements}
           onGenerateCode={() => setShowCode(true)}
         />
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRef } from "react";
 import type { ChangeEvent } from "react";
@@ -7,8 +7,10 @@ import {
   Download,
   Monitor,
   Plus,
+  Redo2,
   Smartphone,
   Tablet,
+  Undo2,
   Upload,
 } from "lucide-react";
 
@@ -17,11 +19,15 @@ type DeviceMode = "desktop" | "tablet" | "mobile";
 type EditorHeaderProps = {
   projectName: string;
   deviceMode: DeviceMode;
+  canUndo: boolean;
+  canRedo: boolean;
   onProjectNameChange: (name: string) => void;
   onNewProject: () => void;
   onImportProject: (event: ChangeEvent<HTMLInputElement>) => void;
   onExportProject: () => void;
   onDeviceModeChange: (device: DeviceMode) => void;
+  onUndo: () => void;
+  onRedo: () => void;
   onGenerateCode: () => void;
 };
 
@@ -34,11 +40,15 @@ const devices = [
 export function EditorHeader({
   projectName,
   deviceMode,
+  canUndo,
+  canRedo,
   onProjectNameChange,
   onNewProject,
   onImportProject,
   onExportProject,
   onDeviceModeChange,
+  onUndo,
+  onRedo,
   onGenerateCode,
 }: EditorHeaderProps) {
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +108,27 @@ export function EditorHeader({
         />
       </div>
 
+      <div className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1">
+        <button
+          type="button"
+          disabled={!canUndo}
+          onClick={onUndo}
+          title="Annulla (Ctrl+Z)"
+          className="rounded-lg p-2 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <Undo2 className="h-4 w-4" />
+        </button>
+
+        <button
+          type="button"
+          disabled={!canRedo}
+          onClick={onRedo}
+          title="Ripristina (Ctrl+Y)"
+          className="rounded-lg p-2 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <Redo2 className="h-4 w-4" />
+        </button>
+      </div>
       <div className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1">
         {devices.map((device) => {
           const Icon = device.icon;
